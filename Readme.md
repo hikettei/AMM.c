@@ -22,7 +22,11 @@
 
 ### Build
 
-Coming soon
+```sh
+$ mkdir build && cd build
+$ cmake ..
+$ cmake --build .
+```
 
 ### TODO
 
@@ -30,4 +34,3 @@ Coming soon
 - [ ] Build FFI and `.dylib`
 - [ ] Test on CI (FFI Call from Common Lisp or Python)
 - [ ] Benchmark on CI
-
