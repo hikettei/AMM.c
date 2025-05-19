@@ -19,6 +19,9 @@ set(AMM_C_SOURCES
 add_executable(${AMM_C_TARGET} ${AMM_C_SOURCES})
 target_include_directories(${AMM_C_TARGET} PRIVATE ./include/kernels ./include)
 target_compile_options(${AMM_C_TARGET} PUBLIC -Wall)
+if (APPLE)
+  target_compile_options(${AMM_C_TARGET} PUBLIC -fblocks)
+endif()
 # === Build Options ================================================================================
 function(amm_compile_option opt_name description default)
   option(${opt_name} ${description} ${default})
@@ -26,8 +29,9 @@ function(amm_compile_option opt_name description default)
     target_compile_definitions(${AMM_C_TARGET} PRIVATE ${opt_name})
   endif()
 endfunction()
-amm_compile_option(AMM_C_USE_BF16 "amm.c: Use Bfloat16 operaitons" OFF)
+amm_compile_option(AMM_C_USE_BF16               "amm.c: Use Bfloat16 operaitons" OFF)
 amm_compile_option(AMM_C_ALGO_ORIGINAL_MADDNESS "amm.c: Builds OriginalMaddness Algorithm" ON)
+amm_compile_option(AMM_C_USE_OMP                "amm.c: Use OpenMP" OFF)
 # == Build (Kernel Parts) ==========================================================================
 # Note(hikettei): If you want to add a new backend named <BACKEND> you may have to do the following:
 # 1. Add a new option AMM_C_<BACKEND> in the kernel options above.

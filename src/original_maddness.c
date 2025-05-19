@@ -2,10 +2,15 @@
 
 #include "amm_dtype.h"
 #include "original_maddness.h"
+#include "utils.h"
+
+#ifdef AMM_C_USE_OMP
+#include <omp.h>
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <utils.h>
+
 // ~~ Alloc/Free ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 OriginalMaddnessGemm *amm_original_maddness_gemm_alloc(int N, int M, int K, int LDX, int C, int n_cluster, int nsplits, AMM_DType dtype) {
   struct OriginalMaddnessGemm *mgemm = malloc(sizeof *mgemm);
@@ -49,13 +54,23 @@ N +++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
   // TODO: The shape of buckets???
   if (gemm->buckets == NULL) gemm->buckets = malloc(gemm->C * gemm->nsplits * sizeof(int)); // [C, nsplits]
   if (gemm->protos == NULL)  gemm->protos = malloc(gemm->C * gemm->n_cluster * steps * sizeof(float)); // [C, n_cluster, M/C]
-
   // Reading A_offline [T, 0:4], A_offline[T, 4:8], A_offline[T, 8:12], ...
+  // amm_lambda_type(int, (int, int)) aref_buckets = amm_lambda(int, (int i, int j) { return i + lda * j;});
+  
+#ifdef AMM_C_USE_OMP
+#pragma omp parallel for
+#endif
+  for (int i=0, c=0; i<gemm->M; i+=steps, c++) {
+    
+  }
+  
+  
   // 短冊状にした各Bucketごとに学習
   // どこからHardware Specificにする？
   // ここからやっていい？
   // 1. INDEX(i, j)を作る
   // 2. Memory Order???
+  // Changed policy: Implement HashLearning in C
 }
 
 void learn_proto_and_hash_function_f32(OriginalMaddnessGemm* gemm, amm_float32* A_offline, int nrows, int lda) {

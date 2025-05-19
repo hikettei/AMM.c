@@ -1,3 +1,5 @@
+CC := gcc
+
 .PHONY: help
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -7,4 +9,4 @@ help:
 build: ## Build AMM.c
 	@echo "Building AMM.c..."
 	@mkdir -p build
-	@cmake -S . -B ./build -G Ninja && cd build && ninja
+	@cmake -S . -B ./build -DCMAKE_C_COMPILER=$(CC) -G Ninja && cd build && ninja

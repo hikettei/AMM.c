@@ -5,14 +5,6 @@
 #include <inttypes.h>
 
 /*
-TODO:
-Float32, BFloat16, Float, Int2 ~ 8に対して
-Prototype Learning, LUT Scanを実装
-Extern Cとマクロで(SIMDと同じネーミングで)maddness_encode_i8的なのを作る
-Naive = Unoptimized Implementation
-TODO: Implement Differentiable Maddness
-*/
-
 // Memo: マクロでf32 ~ i8
 void encode_m_f32(const float *X, int m, int n, int ldx,
                   int ncodebooks,
@@ -67,6 +59,7 @@ void encode_m_f32(const float *X, int m, int n, int ldx,
     }
   }
 }
+*/
 
 /*
 // Scan and Aggregation
