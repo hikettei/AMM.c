@@ -7,6 +7,7 @@
 */
 
 #include "amm_dtype.h"
+#include "ndarray.h"
 
 typedef struct OriginalMaddnessGemm OriginalMaddnessGemm;
 struct OriginalMaddnessGemm {
@@ -15,27 +16,13 @@ struct OriginalMaddnessGemm {
   int C; // Number of Codebooks
   int nsplits; // Number of splits per codebook
   int n_cluster; // Number of clusters (Usually 16)
-  void* quantized_lut; void* buckets; void* protos; // TODO: Quantizes into int8_t ~ binary/ternary?
+  NDArray* quantized_lut; NDArray* buckets; NDArray* protos; // TODO: Quantizes into int8_t ~ binary/ternary?
   AMM_DType dtype; // Data type of the input matrix
 };
 
 OriginalMaddnessGemm *amm_original_maddness_gemm_alloc(int N, int M, int K, int LDX, int C, int n_cluster, int nsplits, AMM_DType dtype);
 void amm_original_maddness_gemm_free(OriginalMaddnessGemm *mgemm);
 
-void amm_om_setAoffline(OriginalMaddnessGemm *mgemm, void* A_offline, int nrows, int lda);
-void amm_om_setA(OriginalMaddnessGemm *mgemm, void* A);
-void amm_om_setB(OriginalMaddnessGemm *mgemm, void* B);
-// Naming Convention:
-// amm_<algorithm>_<operation>_<dtype> where:
-// - algorithm is namely **O**riginal**M**addness
-void amm_om_setAoffline_f32(OriginalMaddnessGemm *mgemm, amm_float32* A_Offline, int nrows, int lda);
-void amm_om_setA_f32(OriginalMaddnessGemm *mgemm, amm_float32* A);
-void amm_om_setB_f32(OriginalMaddnessGemm *mgemm, amm_float32* B);
-
-#ifdef AMM_C_USE_BF16
-
-void amm_om_setAoffline_bf16(OriginalMaddnessGemm *mgemm, amm_bfloat16* A_Offline, int nrows, int lda);
-void amm_om_setA_bf16(OriginalMaddnessGemm *mgemm, amm_bfloat16* A);
-void amm_om_setB_bf16(OriginalMaddnessGemm *mgemm, amm_bfloat16* B);
-
-#endif
+void amm_om_setAoffline(OriginalMaddnessGemm *mgemm, NDArray* A_offline);
+void amm_om_setA(OriginalMaddnessGemm *mgemm, NDArray* A);
+void amm_om_setB(OriginalMaddnessGemm *mgemm, NDArray* B);

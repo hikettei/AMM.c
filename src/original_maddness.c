@@ -34,7 +34,7 @@ void amm_original_maddness_gemm_free(OriginalMaddnessGemm *mgemm) {
   }
 }
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-void init_and_learn_offline_fp32(OriginalMaddnessGemm* gemm, amm_float32* A_offline, int nrows, int lda) {
+void init_and_learn_offline(OriginalMaddnessGemm* gemm, NDArray* A_offline) {
   /*
     The function init_and_learn_offline_fp32 clusters the prototypess from A_offline, and then constructs the encoding function g(a).
     A_offline is a matrix of size [nrows, gemm->M] and the value of nrows can be any number regardless of gemm->N. (i.e.: the more nrows the better cluster)
@@ -73,72 +73,21 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
   // Changed policy: Implement HashLearning in C
 }
 
-void learn_proto_and_hash_function_f32(OriginalMaddnessGemm* gemm, amm_float32* A_offline, int nrows, int lda) {
-  init_and_learn_offline_fp32(gemm, A_offline, nrows, lda); // gemm.buckets = new_bucket; gemm.protos = new_proto;
+void learn_proto_and_hash_function(OriginalMaddnessGemm* gemm, NDArray* A_offline) {
+  init_and_learn_offline(gemm, A_offline); // gemm.buckets = new_bucket; gemm.protos = new_proto;
   
 }
 // 1. Prototype Learning
-void amm_om_setAoffline_f32(OriginalMaddnessGemm* gemm, amm_float32* A_offline, int nrows, int lda) {
-  learn_proto_and_hash_function_f32(gemm, A_offline, nrows, lda);
+void amm_om_setAoffline(OriginalMaddnessGemm* gemm, NDArray* A_offline) {
+  learn_proto_and_hash_function(gemm, A_offline);
 }
 
-void amm_om_setA_f32(OriginalMaddnessGemm* gemm, amm_float32* A) {
+void amm_om_setA(OriginalMaddnessGemm* gemm, NDArray* A) {
   
 }
 
-void amm_om_setB_f32(OriginalMaddnessGemm* gemm, amm_float32* B) {
+void amm_om_setB(OriginalMaddnessGemm* gemm, NDArray* B) {
 
-}
-
-/*
-  Top-level functions for OriginalMaddness
-*/
-void amm_om_setAoffline(OriginalMaddnessGemm* gemm, void* A_offline, int nrows, int lda) {
-  switch (gemm->dtype) {
-  case AMM_DTYPE_F32:
-    amm_om_setAoffline_f32(gemm, (amm_float32*)A_offline, nrows, lda);
-    break;
-#ifdef AMM_C_USE_BF16
-  case AMM_DTYPE_BF16:
-    amm_om_setAoffline_bf16(gemm, (amm_bfloat16*)A_offline, nrows, lda);
-    break;
-#endif
-  default:
-    fprintf(stderr, "Unsupported data type for A_offline\n");
-    break;
-  }
-}
-
-void amm_om_setA(OriginalMaddnessGemm* gemm, void* A) {
-  switch (gemm->dtype) {
-  case AMM_DTYPE_F32:
-    amm_om_setA_f32(gemm, (amm_float32*)A);
-    break;
-#ifdef AMM_C_USE_BF16
-  case AMM_DTYPE_BF16:
-    amm_om_setAoffline_bf16(gemm, (amm_bfloat16*)A);
-    break
-#endif
-  default:
-      fprintf(stderr, "Unsupported data type for A\n");
-    break;
-  }
-}
-
-void amm_om_setB(OriginalMaddnessGemm* gemm, void* B) {
-  switch (gemm->dtype) {
-  case AMM_DTYPE_F32:
-    amm_om_setA_f32(gemm, (amm_float32*)B);
-    break;
-#ifdef AMM_C_USE_BF16
-  case AMM_DTYPE_BF16:
-    amm_om_setAoffline_bf16(gemm, (amm_bfloat16*)B);
-    break
-#endif
-  default:
-      fprintf(stderr, "Unsupported data type for B\n");
-    break;
-  }
 }
 
 #endif // AMM_C_ALGO_ORIGINAL_MADDNESS

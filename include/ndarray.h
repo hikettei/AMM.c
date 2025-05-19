@@ -1,5 +1,5 @@
 #include "amm_dtype.h"
-
+#pragma once
 /*
   NDArray is a wrapper for *storage with shape and strides.
 */
