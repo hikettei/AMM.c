@@ -2,6 +2,7 @@
 
 #include "amm_dtype.h"
 #include "original_maddness.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <utils.h>
@@ -28,13 +29,13 @@ void amm_original_maddness_gemm_free(OriginalMaddnessGemm *mgemm) {
   }
 }
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-void init_and_learn_offline_fp32(OriginalMaddnessGemm* gemm, amm_float32* A_offline, int nrows) {
+void init_and_learn_offline_fp32(OriginalMaddnessGemm* gemm, amm_float32* A_offline, int nrows, int lda) {
   /*
     The function init_and_learn_offline_fp32 clusters the prototypess from A_offline, and then constructs the encoding function g(a).
     A_offline is a matrix of size [nrows, gemm->M] and the value of nrows can be any number regardless of gemm->N. (i.e.: the more nrows the better cluster)
 
     This function allocates two arrays:
-    - gemm->buckets: []
+    - gemm->buckets: [?]
     - gemm->protos:  [C n_cluster gemm->M/gemm->C]
 
    D         C      C
@@ -53,15 +54,17 @@ N +++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
   // 短冊状にした各Bucketごとに学習
   // どこからHardware Specificにする？
   // ここからやっていい？
+  // 1. INDEX(i, j)を作る
+  // 2. Memory Order???
 }
 
-void learn_proto_and_hash_function_f32(OriginalMaddnessGemm* gemm, amm_float32* A_offline) {
-  init_and_learn_offline_fp32(gemm, A_offline); // gemm.buckets = new_bucket; gemm.protos = new_proto;
+void learn_proto_and_hash_function_f32(OriginalMaddnessGemm* gemm, amm_float32* A_offline, int nrows, int lda) {
+  init_and_learn_offline_fp32(gemm, A_offline, nrows, lda); // gemm.buckets = new_bucket; gemm.protos = new_proto;
   
 }
 // 1. Prototype Learning
-void amm_om_setAoffline_f32(OriginalMaddnessGemm* gemm, amm_float32* A_offline) {
-  learn_proto_and_hash_function_f32(gemm, A_offline);
+void amm_om_setAoffline_f32(OriginalMaddnessGemm* gemm, amm_float32* A_offline, int nrows, int lda) {
+  learn_proto_and_hash_function_f32(gemm, A_offline, nrows, lda);
 }
 
 void amm_om_setA_f32(OriginalMaddnessGemm* gemm, amm_float32* A) {
@@ -75,14 +78,14 @@ void amm_om_setB_f32(OriginalMaddnessGemm* gemm, amm_float32* B) {
 /*
   Top-level functions for OriginalMaddness
 */
-void amm_om_setAoffline(OriginalMaddnessGemm* gemm, void* A_offline) {
+void amm_om_setAoffline(OriginalMaddnessGemm* gemm, void* A_offline, int nrows, int lda) {
   switch (gemm->dtype) {
   case AMM_DTYPE_F32:
-    amm_om_setAoffline_f32(gemm, (amm_float32*)A_offline);
+    amm_om_setAoffline_f32(gemm, (amm_float32*)A_offline, nrows, lda);
     break;
 #ifdef AMM_C_USE_BF16
   case AMM_DTYPE_BF16:
-    amm_om_setAoffline_bf16(gemm, (amm_bfloat16*)A_offline);
+    amm_om_setAoffline_bf16(gemm, (amm_bfloat16*)A_offline, nrows, lda);
     break;
 #endif
   default:
