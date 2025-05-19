@@ -4,6 +4,25 @@
 #include <stdlib.h>
 #include <math.h>
 
+// TODO: Implement Multiple Maddness Algorithm
+// 1. OriginalMaddnessGemm
+// 2. Differentiable MaddnessGemm
+// 3. QuantizedMaddnessGemm (where the input itself is int)
+
+struct OriginalMaddnessGemm {
+  int N, M, K; // A[N M] @ B[M K]  
+  int LDX; // Column Major or Row Major.
+  int C; // Number of Codebooks
+  int nsplits; // Number of splits per codebook
+
+  void* quantized_lut; // TODO: Quantizes into int8_t ~ binary/ternary?
+};
+
+// メモ: より新しい実装が発見された時に，今までのソースツリーから非依存で追加できるようにしたい。
+// Toplevelは完全に別にしよう。
+
+// テスト用 ~~~~~~~~
+// 後で移動する
 float* randn(int size) {
   float *x = (float *)malloc(size * sizeof(float));
   for (int i=0; i<size; i++) x[i] = sqrt(-2.0 * log((float)rand() / RAND_MAX)) * cos(2.0 * M_PI * (float)rand() / RAND_MAX);
