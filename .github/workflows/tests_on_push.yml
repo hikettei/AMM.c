@@ -1,0 +1,41 @@
+name: Unit Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  UnitTest_CPU:
+    name: (${{ matrix.kernel }}) Unittest w/ CPU
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        kernel: [naive]
+        os: [ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v1
+      - name: Build AMM.c
+        run: |
+          make build
+  UnitTest_Mac:
+    name: (${{ matrix.kernel }}) Unittest w/ macOS
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        kernel: [arm64, metal]
+        os: [macos-14]
+    steps:
+      - uses: actions/checkout@v1
+      - name: (ARM64) Build AMM.c
+        if: ${{ matrix.backend == 'arm64' }}
+        run: make build
+      - name: (Metal) Build AMM.c
+        if: ${{ matrix.backend == 'arm64' }}
+        run: make build#_metal
+          
+    
