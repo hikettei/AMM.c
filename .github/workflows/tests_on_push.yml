@@ -8,7 +8,7 @@ on:
 
 jobs:
   UnitTest_CPU:
-    name: (${{ matrix.backend }}) Unittest w/ CPU
+    name: (${{ matrix.kernel }}) Unittest w/ CPU
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
@@ -22,7 +22,7 @@ jobs:
         run: |
           make build
   UnitTest_Mac:
-    name: (${{ matrix.backend }}) Unittest w/ macOS
+    name: (${{ matrix.kernel }}) Unittest w/ macOS
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -31,7 +31,11 @@ jobs:
         os: [macos-14]
     steps:
       - uses: actions/checkout@v1
-      - name: Build AMM.c
-        run: |
-          make build
+      - name: (ARM64) Build AMM.c
+        if: ${{ matrix.backend == 'arm64' }}
+        run: make build
+      - name: (Metal) Build AMM.c
+        if: ${{ matrix.backend == 'arm64' }}
+        run: make build#_metal
+          
     
