@@ -1,5 +1,4 @@
 #include "include/kernels/common_encoder.hpp"
-
 #include <assert.h>
 #include <math.h>
 #include <stdint.h>
