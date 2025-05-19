@@ -3,6 +3,7 @@
 #include "amm_dtype.h"
 #include "original_maddness.h"
 #include "utils.h"
+#include "argsort.h"
 
 #ifdef AMM_C_USE_OMP
 #include <omp.h>
@@ -110,14 +111,18 @@ B(3, 1)  B(3, 2)   B(3, 3)  B(3, 4)    | nth=2
   */
   Bucket* bucket = amm_bucket_alloc_toplevel(A_offline->shape[0]); // Start with one big buckets covering all rows
   float* col_losses = malloc(steps * sizeof(float));
+  int*   col_indices = malloc(steps * sizeof(int));
   {
     amm_noarg_callback reset_col_losses = amm_lambda(void, (void) { for (int i=0; i<steps; i++) col_losses[i] = 0.0f; });
+    amm_noarg_callback fill_col_indices_argmax = amm_lambda(void, (void) { argsort(col_losses, steps, col_indices); });
     // Training
     for (int epoch=0; epoch<nsplits; epoch++) {
       reset_col_losses();
       sumup_col_sqs(col_losses, bucket, A_offline, col_i, steps);
+      fill_col_indices_argmax();
       for (int c=0;c<steps;c++) {
-        printf("col_losses[%d]: %f\n", c, col_losses[c]);
+        printf("col_losses[%d]: %f\n", c, col_losses[c]); // Loss by column, the goal here is to minimize them
+        printf("col_indices[%d]: %d\n", c, col_indices[c]); // Indices of the columns
       }
     }
   }

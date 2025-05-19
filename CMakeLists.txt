@@ -15,6 +15,7 @@ option(AMM_C_CUDA   "amm.c: Use CUDA"  OFF)
 # == Build (Common Parts) ==========================================================================
 set(AMM_C_SOURCES
     src/ndarray.c
+    src/argsort.c
     src/original_maddness.c
     tmp_test.c)
 add_executable(${AMM_C_TARGET} ${AMM_C_SOURCES})
