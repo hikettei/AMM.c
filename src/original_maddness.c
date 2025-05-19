@@ -34,6 +34,64 @@ void amm_original_maddness_gemm_free(OriginalMaddnessGemm *mgemm) {
   }
 }
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Bucket
+Bucket *amm_bucket_alloc() {
+  Bucket *bucket = malloc(sizeof(Bucket));
+  if (bucket == NULL) {
+    fprintf(stderr, "Failed to allocate memory for Bucket\n");
+    return NULL;
+  }
+  bucket->tree_level = 0; bucket->id = 0;
+  bucket->scale = 0.0f; bucket->offset = 0.0f;
+  bucket->threshold_quantized = 0;
+  bucket->index = 0;
+  bucket->threshold = 0.0f;
+  bucket->threshold_candidates = NULL;
+  bucket->children = NULL;
+  bucket->indices = NULL;
+  return bucket;
+}
+
+void amm_bucket_free(Bucket* bucket) {
+  if (bucket != NULL) {
+    free(bucket->threshold_candidates);
+    free(bucket->children);
+    free(bucket->indices);
+    free(bucket);
+  }
+}
+
+Bucket *amm_bucket_alloc_toplevel(int N) {    
+  Bucket* bucket = amm_bucket_alloc();
+  bucket->indices = malloc(N * sizeof(int));
+  for (int i=0; i<N; i++) ((int*)bucket->indices)[i] = i;
+  return bucket;
+}
+
+void learn_binary_tree_splits(NDArray* A_offline, int col_i, int steps, int nsplits) {
+  /*
+    
+Figure:
+              B(1, 1)                  | nth=0
+         /----------------\            |
+     B(2, 1)            B(2,2)         | nth=1
+   /---------\        /---------\      |
+B(3, 1)  B(3, 2)   B(3, 3)  B(3, 4)    | nth=2
+                                       | ...
+                                       | nth=nsplits
+  */
+  Bucket* bucket = amm_bucket_alloc_toplevel(nsplits * nsplits); // Memo: Total size of tree elements?
+  float* col_losses = malloc(steps * sizeof(float));
+  {
+    amm_noarg_callback reset_col_losses = amm_lambda(void, (void) { for (int i=0; i<steps; i++) col_losses[i] = 0.0f; });
+    // Training
+    for (int epoch=0; epoch<nsplits; epoch++) {
+      reset_col_losses();
+    }
+  }
+}
+
+// Protoype Learning
 void init_and_learn_offline(OriginalMaddnessGemm* gemm, NDArray* A_offline) {
   /*
     The function init_and_learn_offline_fp32 clusters the prototypess from A_offline, and then constructs the encoding function g(a).
@@ -62,7 +120,7 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
 #endif
   for (int col_i=0, nth=0; col_i<gemm->M; col_i+=steps, nth++) {
     printf("col_i: %d, nth: %d\n", col_i, nth);
-    //    learn_binary_tree_splits(A);
+    // bucket = learn_binary_tree_splits();
   }
   // NDArray作る。
   // 短冊状にした各Bucketごとに学習
@@ -81,6 +139,7 @@ void learn_proto_and_hash_function(OriginalMaddnessGemm* gemm, NDArray* A_offlin
 void amm_om_setAoffline(OriginalMaddnessGemm* gemm, NDArray* A_offline) {
   learn_proto_and_hash_function(gemm, A_offline);
 }
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 void amm_om_setA(OriginalMaddnessGemm* gemm, NDArray* A) {
   

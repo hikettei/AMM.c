@@ -23,6 +23,21 @@ struct OriginalMaddnessGemm {
 OriginalMaddnessGemm *amm_original_maddness_gemm_alloc(int N, int M, int K, int LDX, int C, int n_cluster, int nsplits, AMM_DType dtype);
 void amm_original_maddness_gemm_free(OriginalMaddnessGemm *mgemm);
 
+typedef struct Bucket Bucket;
+struct Bucket {
+  int tree_level; int id;
+  float scale; float offset; // Quantization Parameters (TODO: Abstraction for Quantization? QuantizedNDArray?)
+  int threshold_quantized;
+  int index;
+  float threshold;
+  void* threshold_candidates;
+  void* children;
+  void* indices;
+};
+
+Bucket *amm_bucket_alloc();
+void amm_bucket_free(Bucket* bucket);
+
 void amm_om_setAoffline(OriginalMaddnessGemm *mgemm, NDArray* A_offline);
 void amm_om_setA(OriginalMaddnessGemm *mgemm, NDArray* A);
 void amm_om_setB(OriginalMaddnessGemm *mgemm, NDArray* B);
