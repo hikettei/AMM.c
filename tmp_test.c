@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <math.h>
 
+#include "original_maddness.h"
+
 // TODO: Implement Multiple Maddness Algorithm
 // 1. OriginalMaddnessGemm
 // 2. Differentiable MaddnessGemm
@@ -31,15 +33,22 @@ int main() {
   // Maddness Workflow
   // 1, Prototype Learning
   // Initialize matrix sampled from gaussian dist.
-  int N = 512, M = 512, K = 512;
-  int LDX = 512; // Column Major
-  int C = 16; // Number of Codebooks
-  int nsplits = 4; // Number of splits per codebook
 
+  OriginalMaddnessGemm mgemm = {
+    .N = 512,
+    .M = 512,
+    .K = 512,
+    .LDX = 512,
+    .C = 16,
+    .nsplits = 4,
+    .quantized_lut = NULL
+  };
+  
   // We are going to approximate A[N M] @ B[M K]
-  float *A_Offline = randn(M * N);
-  float *A         = randn(M * N);
+  float *A_Offline = randn(mgemm.M * mgemm.N);
+  float *A         = randn(mgemm.M * mgemm.N);
   // 1. SET_A_OFFLINE
+  amm_om_setAoffline_f32(&mgemm, A_Offline);
   
   
   // 2. SET_A

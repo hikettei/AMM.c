@@ -4,7 +4,8 @@ project("AMM.c" C)
 set(CMAKE_CXX_STANDARD 17)
 
 set(AMM_C_TARGET amm_c)
-
+# === Build Options ================================================================================
+option(AMM_C_USE_BF16 "amm.c: Use Bfloat16 operaitons" OFF)
 # === Kernel Options ===============================================================================
 option(AMM_C_NAIVE  "amm.c: Use NAIVE" ON)
 option(AMM_C_AVX2   "amm.c: Use AVX2"   OFF)
