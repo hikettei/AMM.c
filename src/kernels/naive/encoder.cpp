@@ -57,7 +57,7 @@ void encode_m_f32(const float *X, int m, int n, int ldx,
           if      (iv > 127) iv = 127;
           else if (iv < -128) iv = -128;
           int8_t x_i8 = (int8_t)iv;
-          const int8_t* tbl = all_splitvals + vals_per_split * (split_base + s);
+          const int8_t* tbl = splitvals + vals_per_split * (split_base + s);
           int8_t threshold = tbl[code];
           int bit = (x_i8 > threshold) ? 1 : 0;
           code = (code << 1) | bit;
@@ -68,6 +68,7 @@ void encode_m_f32(const float *X, int m, int n, int ldx,
   }
 }
 
+/*
 // Scan and Aggregation
 template <int NBytes, int UpcastEvery = 16, int _OutTileSz = 1, bool Force16BitOutput = false>
 void scan_m_f32(
@@ -205,3 +206,4 @@ void scan_m_f32(
         }
     } // end for blk
 }
+*/
