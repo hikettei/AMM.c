@@ -4,7 +4,8 @@
 #include "original_maddness.h"
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <utils.h>
+// ~~ Alloc/Free ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 OriginalMaddnessGemm *amm_original_maddness_gemm_alloc(int N, int M, int K, int LDX, int C, int nsplits, AMM_DType dtype) {
   struct OriginalMaddnessGemm *mgemm = malloc(sizeof *mgemm);
   if (mgemm == NULL) {
@@ -24,6 +25,11 @@ void amm_original_maddness_gemm_free(OriginalMaddnessGemm *mgemm) {
     free(mgemm->quantized_lut); // Free quantized LUT if allocated
     free(mgemm); // Free the main structure
   }
+}
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// FP32 Impl
+void init_and_learn_offline_fp32(OriginalMaddnessGemm* gemm, amm_float32* A_offline) {
+  amm_assert((gemm->M & gemm->C) == 0, "M should be divisible by C");
 }
 
 void learn_proto_and_hash_function_f32(amm_float32* A_offline, int C, int nsplits) {

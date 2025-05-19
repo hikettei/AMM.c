@@ -36,7 +36,7 @@ int main() {
   // Compute A_hat @ B
   amm_om_setA(mgemm, A);
   amm_om_setB(mgemm, B);
-  //
+  
   amm_original_maddness_gemm_free(mgemm);
   // 2. SET_A
   // 3. SET_B
