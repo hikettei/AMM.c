@@ -1,4 +1,4 @@
-# AMM.cpp 
+# AMM.c
 
 > AMM = Approximated Matrix Multiplication
 

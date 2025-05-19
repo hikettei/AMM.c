@@ -1,4 +1,4 @@
-#include "common_encoder.hpp"
+#include "common_kernel.h"
 #include <assert.h>
 #include <math.h>
 #include <stdint.h>
