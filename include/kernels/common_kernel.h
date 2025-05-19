@@ -15,23 +15,23 @@
 */
 #include <stdint.h>
 
-#define define_ammcpp_encoder(algorithm, in_dtype_prefix, in_dtype, lut_dtype_prefix, lut_dtype, quantizer) \
-     void ammcpp_encode_##algorithm##_##in_dtype_prefix##_##lut_dtype_prefix##_##quantizer( \
+#define define_amm_encoder(algorithm, in_dtype_prefix, in_dtype, lut_dtype_prefix, lut_dtype, quantizer) \
+     void amm_encode_##algorithm##_##in_dtype_prefix##_##lut_dtype_prefix##_##quantizer( \
       const in_dtype *X, int m, int n, int ldx, /* X is a matrix of size [m, n] with the leading dimension ldx */ \
       int ncodebooks, /* Training Configuration: Number of codebooks (C) */ \
       const uint32_t *splitdims, const int8_t *splitvals, const in_dtype *scales, const in_dtype *offsets, /* Quantization Parameters */ \
       lut_dtype* out /* An allocated buffer for storing the quantized LUT sized [C, n] */); \
 
 // TODO
-#define define_ammcpp_decoder(algorithm, lut_dtype_prefix, lut_dtype, quantizer) \
-      void ammcpp_scan_##lut_dtype_prefix##_##quantizer( \
+#define define_amm_decoder(algorithm, lut_dtype_prefix, lut_dtype, quantizer) \
+      void amm_scan_##lut_dtype_prefix##_##quantizer( \
         const in_dtype *X, int m, int n, int ldx, /* X is a matrix of size [m, n] with the leading dimension ldx */ \
         int ncodebooks, /* Training Configuration: Number of codebooks (C) */ \
         const uint32_t *splitdims, const int8_t *splitvals, const in_dtype *scales, const in_dtype *offsets, /* Quantization Parameters */ \
         lut_dtype* out /* An allocated buffer for storing the quantized LUT sized [C, n] */); \
 
 // Encoders
-define_ammcpp_encoder(m, f32, float, i8, uint8_t, clamp)
+define_amm_encoder(m, f32, float, i8, uint8_t, clamp)
 // TODO: More Follows ...
 
 // Scanners
