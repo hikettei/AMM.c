@@ -1,4 +1,4 @@
-#include "common_kernel.h"
+#include "comm_original_maddness.h"
 #include <assert.h>
 #include <math.h>
 #include <stdint.h>
