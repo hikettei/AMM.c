@@ -43,10 +43,10 @@ void init_and_learn_offline_fp32(OriginalMaddnessGemm* gemm, amm_float32* A_offl
     - gemm->buckets: [?]
     - gemm->protos:  [C n_cluster gemm->M/gemm->C]
 
-   D         C      C
-  +++       +--    -+-
-N +++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
-  +++       +--,   -+-  ... * (N/D), Binary-Tree-Split is applied into each visible area.
+     D          C      C    (where D = 2 * C)
+  ++++++       +--    -+-
+N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
+  ++++++       +--,   -+-  ... * (N/D), Binary-Tree-Split is applied into each visible area.
   */
   amm_assert((gemm->M % gemm->C) == 0, "init_and_learn_offline_fp32: M should be divisible by C");
   int steps = gemm->M / gemm->C;
@@ -54,17 +54,17 @@ N +++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
   // TODO: The shape of buckets???
   if (gemm->buckets == NULL) gemm->buckets = malloc(gemm->C * gemm->nsplits * sizeof(int)); // [C, nsplits]
   if (gemm->protos == NULL)  gemm->protos = malloc(gemm->C * gemm->n_cluster * steps * sizeof(float)); // [C, n_cluster, M/C]
-  // Reading A_offline [T, 0:4], A_offline[T, 4:8], A_offline[T, 8:12], ...
   // amm_lambda_type(int, (int, int)) aref_buckets = amm_lambda(int, (int i, int j) { return i + lda * j;});
-  
+
+  // Reading A_offline [T, 0:4], A_offline[T, 4:8], A_offline[T, 8:12], ..., A_offline[T, col_i:col_i+4]
 #ifdef AMM_C_USE_OMP
 #pragma omp parallel for
 #endif
-  for (int i=0, c=0; i<gemm->M; i+=steps, c++) {
-    
+  for (int col_i=0, nth=0; col_i<gemm->M; col_i+=steps, nth++) {
+    printf("col_i: %d, nth: %d\n", col_i, nth);
+    //    learn_binary_tree_splits(A);
   }
-  
-  
+  // NDArray作る。
   // 短冊状にした各Bucketごとに学習
   // どこからHardware Specificにする？
   // ここからやっていい？
