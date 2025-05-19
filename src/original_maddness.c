@@ -68,6 +68,23 @@ Bucket *amm_bucket_alloc_toplevel(int N) {
   return bucket;
 }
 
+void amm_bucket_col_variances(Bucket* bucket, NDArray* A_offline) {
+  
+}
+
+void sumup_col_sqs(float* col_losses, Bucket* bucket, NDArray* A_offline, int col_i, int steps);
+void sumup_col_sqs(float* col_losses, Bucket* bucket, NDArray* A_offline, int col_i, int steps) {
+  if (bucket->indices != NULL) {
+    for (int i=0; i<steps; i++) {
+      col_losses[i] += 0.0f; //todo;
+    }
+  }
+  if (bucket->children != NULL) {
+    sumup_col_sqs(col_losses, ((Bucket**)bucket->children)[0], A_offline, col_i, steps);
+    sumup_col_sqs(col_losses, ((Bucket**)bucket->children)[1], A_offline, col_i, steps);
+  }
+}
+
 void learn_binary_tree_splits(NDArray* A_offline, int col_i, int steps, int nsplits) {
   /*
     
@@ -80,13 +97,14 @@ B(3, 1)  B(3, 2)   B(3, 3)  B(3, 4)    | nth=2
                                        | ...
                                        | nth=nsplits
   */
-  Bucket* bucket = amm_bucket_alloc_toplevel(nsplits * nsplits); // Memo: Total size of tree elements?
+  Bucket* bucket = amm_bucket_alloc_toplevel(1 << nsplits); // Memo: Total size of tree elements?
   float* col_losses = malloc(steps * sizeof(float));
   {
     amm_noarg_callback reset_col_losses = amm_lambda(void, (void) { for (int i=0; i<steps; i++) col_losses[i] = 0.0f; });
     // Training
     for (int epoch=0; epoch<nsplits; epoch++) {
       reset_col_losses();
+      sumup_col_sqs(col_losses, bucket, A_offline, col_i, steps);
     }
   }
 }
