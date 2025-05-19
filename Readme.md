@@ -22,6 +22,8 @@
 
 ### Build
 
+Requirements: Build, `cmake > 3.14`, Ninja
+
 ```sh
 $ mkdir build && cd build
 $ cmake ..
