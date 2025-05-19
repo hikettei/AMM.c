@@ -1,0 +1,3 @@
+
+#define amm_float32 float
+// More Follows ...
