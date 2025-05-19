@@ -17,7 +17,7 @@ option(AMM_C_CUDA   "amm.c: Use CUDA"  OFF)
 # ==================================================================================================
 # == Build (Common Parts) ==========================================================================
 set(AMM_C_SOURCES
-    src/encoding.c
+    src/original_maddness.c
     src/maddness.c)
 add_executable(${AMM_C_TARGET} ${AMM_C_SOURCES})
 target_include_directories(${AMM_C_TARGET} PRIVATE ./include/kernels)

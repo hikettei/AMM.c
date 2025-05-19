@@ -1,5 +1,3 @@
-#include "common_kernel.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -8,15 +6,6 @@
 // 1. OriginalMaddnessGemm
 // 2. Differentiable MaddnessGemm
 // 3. QuantizedMaddnessGemm (where the input itself is int)
-
-struct OriginalMaddnessGemm {
-  int N, M, K; // A[N M] @ B[M K]  
-  int LDX; // Column Major or Row Major.
-  int C; // Number of Codebooks
-  int nsplits; // Number of splits per codebook
-
-  void* quantized_lut; // TODO: Quantizes into int8_t ~ binary/ternary?
-};
 
 // メモ: より新しい実装が発見された時に，今までのソースツリーから非依存で追加できるようにしたい。
 // Toplevelは完全に別にしよう。
@@ -28,6 +17,12 @@ float* randn(int size) {
   for (int i=0; i<size; i++) x[i] = sqrt(-2.0 * log((float)rand() / RAND_MAX)) * cos(2.0 * M_PI * (float)rand() / RAND_MAX);
   return x;
 }
+
+// TODO:
+// 1. original_maddness.h
+// 2. encoder.c -> original_maddness.c
+// ./include/original_maddness.h にはInterfaceのInclude (e.g.: struct)
+// ./include/kernels/comm_original_maddness.h にはKernel Specific StuffのInclude
 
 // [TODO] 多分別のToplevelを作る
 int main() {
