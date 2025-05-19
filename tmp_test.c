@@ -34,23 +34,20 @@ int main() {
   // 1, Prototype Learning
   // Initialize matrix sampled from gaussian dist.
 
-  OriginalMaddnessGemm mgemm = {
-    .N = 512,
-    .M = 512,
-    .K = 512,
-    .LDX = 512,
-    .C = 16,
-    .nsplits = 4,
-    .quantized_lut = NULL
-  };
+  OriginalMaddnessGemm* mgemm = amm_original_maddness_gemm_alloc(1024, 1024, 1024, 1024, 8, 4);
   
   // We are going to approximate A[N M] @ B[M K]
-  float *A_Offline = randn(mgemm.M * mgemm.N);
-  float *A         = randn(mgemm.M * mgemm.N);
+  float *A_Offline = randn(mgemm->M * mgemm->N);
+  float *A         = randn(mgemm->M * mgemm->N);
+  float *B         = randn(mgemm->M * mgemm->K);
   // 1. SET_A_OFFLINE
-  amm_om_setAoffline_f32(&mgemm, A_Offline);
-  
-  
+  amm_om_setAoffline_f32(mgemm, A_Offline);
+
+  // Compute A_hat @ B
+  amm_om_setA_f32(mgemm, A);
+  amm_om_setB_f32(mgemm, B);
+  //
+  amm_original_maddness_gemm_free(mgemm);
   // 2. SET_A
   // 3. SET_B
 
