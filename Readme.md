@@ -12,6 +12,12 @@
 - The best platform for experiments
 - Supporting Lowert Bits (2 ~ 8bits integers)
 
+### Project Design
+
+(TODO: 英訳)
+
+- [ ] 将来より良い近似アルゴリズムが出るかもしれない。その際になるべく何も考えないで実装を追加したい。各手法間で共通項があっても一才抽象化を実施しない。その代わりにEntry Pointを複数もつ。
+
 ### Supported Architectures
 
 - [ ] arm64
