@@ -50,6 +50,7 @@ Bucket *amm_bucket_alloc() {
   bucket->threshold_candidates = NULL;
   bucket->children = NULL;
   bucket->indices = NULL;
+  bucket->n_indices = 0;
   return bucket;
 }
 
@@ -65,6 +66,7 @@ void amm_bucket_free(Bucket* bucket) {
 Bucket *amm_bucket_alloc_toplevel(int N) {    
   Bucket* bucket = amm_bucket_alloc();
   bucket->indices = malloc(N * sizeof(int));
+  bucket->n_indices = N;
   for (int i=0; i<N; i++) ((int*)bucket->indices)[i] = i;
   return bucket;
 }
@@ -79,8 +81,7 @@ void amm_bucket_col_variances(float* out_storage, Bucket* bucket, NDArray* A_off
     float xi;
     for (int c=0; c<steps; c++) {
       xi = ((float*)A_offline->storage)[row_idx * A_offline->strides[0] + (col_offset + c) * A_offline->strides[1]];
-      xi -= mu; // xi - mu
-      xi *= xi; // (xi - mu)^2
+      xi -= mu; xi *= xi; // (xi - mu)^2
       if (scale) xi /= steps; // (xi - mu)^2 / steps
       out_storage[c] += xi; // Result
     }
@@ -94,6 +95,22 @@ void sumup_col_sqs(float* col_losses, Bucket* bucket, NDArray* A_offline, int co
   if (bucket->children != NULL) {
     sumup_col_sqs(col_losses, ((Bucket**)bucket->children)[0], A_offline, col_i, steps);
     sumup_col_sqs(col_losses, ((Bucket**)bucket->children)[1], A_offline, col_i, steps);
+  }
+}
+
+float* compute_optimal_val_splits(NDArray* A_offline, int col_i, int steps, Bucket* bucket, int dim, int dth) {
+  if (bucket->indices == NULL || bucket->n_indices < 2) return (float[]){0.0f, 0.0f}; // No split possible
+  for (int nrow=0; nrow<A_offline->shape[0]; nrow++) {
+    
+  }
+}
+
+int optimal_val_splits(NDArray* A_offline, int col_i, int steps, Bucket* bucket, float* total_losses,
+                       int d, int dth, int lv) {
+  if (bucket->tree_level == lv) {
+    
+  } else {
+    amm_assert(bucket->children != NULL, "optimal_val_splits: bucket->children is NULL");
   }
 }
 
@@ -111,6 +128,7 @@ B(3, 1)  B(3, 2)   B(3, 3)  B(3, 4)    | nth=2
   */
   Bucket* bucket = amm_bucket_alloc_toplevel(A_offline->shape[0]); // Start with one big buckets covering all rows
   float* col_losses = malloc(steps * sizeof(float));
+  float* total_losses = malloc(steps * sizeof(float));
   int*   col_indices = malloc(steps * sizeof(int));
   {
     amm_noarg_callback reset_col_losses = amm_lambda(void, (void) { for (int i=0; i<steps; i++) col_losses[i] = 0.0f; });
@@ -124,6 +142,12 @@ B(3, 1)  B(3, 2)   B(3, 3)  B(3, 4)    | nth=2
         printf("col_losses[%d]: %f\n", c, col_losses[c]); // Loss by column, the goal here is to minimize them
         printf("col_indices[%d]: %d\n", c, col_indices[c]); // Indices of the columns
       }
+      // Update splits
+      for (int d=0; d<steps; d++)
+        for (int lv=0; lv<=epoch; lv++)
+          if (optimal_val_splits(A_offline, col_i, steps, bucket, total_losses, d, col_indices[d], lv) != 0) break;
+      // Find the best split
+      
     }
   }
 }

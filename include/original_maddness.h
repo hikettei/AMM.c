@@ -33,6 +33,7 @@ struct Bucket {
   void* threshold_candidates;
   void* children; // Since Bucket is a binary tree, children is always NULL or cons.
   void* indices;
+  int n_indices; // Number of indices in this bucket
 };
 
 Bucket *amm_bucket_alloc();
