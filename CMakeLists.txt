@@ -20,7 +20,7 @@ set(AMM_C_SOURCES
     tmp_test.c)
 add_executable(${AMM_C_TARGET} ${AMM_C_SOURCES})
 target_include_directories(${AMM_C_TARGET} PRIVATE ./include/kernels ./include)
-target_compile_options(${AMM_C_TARGET} PUBLIC -Wall)
+target_compile_options(${AMM_C_TARGET} PUBLIC -Wall -lm)
 if (APPLE)
   target_compile_options(${AMM_C_TARGET} PUBLIC -fblocks)
 endif()
