@@ -10,7 +10,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <stdbool.h>
 // ~~ Alloc/Free ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 OriginalMaddnessGemm *amm_original_maddness_gemm_alloc(int N, int M, int K, int LDX, int C, int n_cluster, int nsplits, AMM_DType dtype) {
   struct OriginalMaddnessGemm *mgemm = malloc(sizeof *mgemm);
@@ -68,17 +68,28 @@ Bucket *amm_bucket_alloc_toplevel(int N) {
   return bucket;
 }
 
-void amm_bucket_col_variances(Bucket* bucket, NDArray* A_offline) {
-  
+void amm_bucket_col_variances(float* out_storage, Bucket* bucket, NDArray* A_offline, int col_offset, int steps, bool scale) {
+  for (int nth=0; nth<A_offline->shape[0]; nth++) {
+    int row_idx = ((int*)bucket->indices)[nth];
+    float mu = 0.0f; // Accumlator for column-wise sum
+    for (int c=0; c<steps; c++) mu += ((float*)A_offline->storage)[row_idx * A_offline->strides[0] + (col_offset + c) * A_offline->strides[1]];
+    mu /= steps; // Mean
+    // Broadcast for shape[1]
+    float xi;
+    for (int c=0; c<steps; c++) {
+      xi = ((float*)A_offline->storage)[row_idx * A_offline->strides[0] + (col_offset + c) * A_offline->strides[1]];
+      xi -= mu; // xi - mu
+      xi *= xi; // (xi - mu)^2
+      if (scale) xi /= steps; // (xi - mu)^2 / steps
+      out_storage[c] += xi; // Result
+    }
+  }
 }
 
 void sumup_col_sqs(float* col_losses, Bucket* bucket, NDArray* A_offline, int col_i, int steps);
 void sumup_col_sqs(float* col_losses, Bucket* bucket, NDArray* A_offline, int col_i, int steps) {
-  if (bucket->indices != NULL) {
-    for (int i=0; i<steps; i++) {
-      col_losses[i] += 0.0f; //todo;
-    }
-  }
+  if (bucket->indices != NULL) amm_bucket_col_variances(col_losses, bucket, A_offline, col_i, steps, 0);
+
   if (bucket->children != NULL) {
     sumup_col_sqs(col_losses, ((Bucket**)bucket->children)[0], A_offline, col_i, steps);
     sumup_col_sqs(col_losses, ((Bucket**)bucket->children)[1], A_offline, col_i, steps);
@@ -97,7 +108,7 @@ B(3, 1)  B(3, 2)   B(3, 3)  B(3, 4)    | nth=2
                                        | ...
                                        | nth=nsplits
   */
-  Bucket* bucket = amm_bucket_alloc_toplevel(1 << nsplits); // Memo: Total size of tree elements?
+  Bucket* bucket = amm_bucket_alloc_toplevel(A_offline->shape[0]); // Start with one big buckets covering all rows
   float* col_losses = malloc(steps * sizeof(float));
   {
     amm_noarg_callback reset_col_losses = amm_lambda(void, (void) { for (int i=0; i<steps; i++) col_losses[i] = 0.0f; });
