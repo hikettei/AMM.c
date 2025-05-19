@@ -21,6 +21,8 @@ float* randn(int size) {
 // TODO:
 // 1. original_maddness.h
 // 2. encoder.c -> original_maddness.c
+// 1. each kernels rename
+// 2. relocate maddness.c
 // ./include/original_maddness.h にはInterfaceのInclude (e.g.: struct)
 // ./include/kernels/comm_original_maddness.h にはKernel Specific StuffのInclude
 

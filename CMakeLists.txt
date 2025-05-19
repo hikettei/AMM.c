@@ -20,7 +20,7 @@ set(AMM_C_SOURCES
     src/original_maddness.c
     src/maddness.c)
 add_executable(${AMM_C_TARGET} ${AMM_C_SOURCES})
-target_include_directories(${AMM_C_TARGET} PRIVATE ./include/kernels)
+target_include_directories(${AMM_C_TARGET} PRIVATE ./include/kernels ./include)
 # ==================================================================================================
 # == Build (Kernel Parts) ==========================================================================
 # Note(hikettei): If you want to add a new backend named <BACKEND> you may have to do the following:
