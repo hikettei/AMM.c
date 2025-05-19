@@ -20,6 +20,7 @@ set(AMM_C_SOURCES
     src/encoding.c
     src/maddness.c)
 add_executable(${AMM_C_TARGET} ${AMM_C_SOURCES})
+target_include_directories(${AMM_C_TARGET} PRIVATE ./include/kernels)
 # ==================================================================================================
 # == Build (Kernel Parts) ==========================================================================
 # Note(hikettei): If you want to add a new backend named <BACKEND> you may have to do the following:
@@ -59,3 +60,4 @@ amm_register_backend(avx512)
 amm_register_backend(arm64)
 amm_register_backend(metal)
 amm_register_backend(cuda)
+# ===============================================================================================
