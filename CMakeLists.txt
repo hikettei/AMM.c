@@ -2,10 +2,7 @@ cmake_minimum_required(VERSION 3.14)
 
 project("AMM.c" C)
 set(CMAKE_CXX_STANDARD 17)
-
 set(AMM_C_TARGET amm_c)
-# === Build Options ================================================================================
-option(AMM_C_USE_BF16 "amm.c: Use Bfloat16 operaitons" OFF)
 # === Kernel Options ===============================================================================
 option(AMM_C_NAIVE  "amm.c: Use NAIVE" ON)
 option(AMM_C_AVX2   "amm.c: Use AVX2"   OFF)
@@ -15,7 +12,6 @@ option(AMM_C_ARM64  "amm.c: Use Arm64" OFF)
 
 option(AMM_C_METAL  "amm.c: Use METAL" OFF)
 option(AMM_C_CUDA   "amm.c: Use CUDA"  OFF)
-# ==================================================================================================
 # == Build (Common Parts) ==========================================================================
 set(AMM_C_SOURCES
     src/original_maddness.c
@@ -23,7 +19,15 @@ set(AMM_C_SOURCES
 add_executable(${AMM_C_TARGET} ${AMM_C_SOURCES})
 target_include_directories(${AMM_C_TARGET} PRIVATE ./include/kernels ./include)
 target_compile_options(${AMM_C_TARGET} PUBLIC -Wall)
-# ==================================================================================================
+# === Build Options ================================================================================
+function(amm_compile_option opt_name description default)
+  option(${opt_name} ${description} ${default})
+  if(${opt_name})
+    target_compile_definitions(${AMM_C_TARGET} PRIVATE ${opt_name})
+  endif()
+endfunction()
+amm_compile_option(AMM_C_USE_BF16 "amm.c: Use Bfloat16 operaitons" OFF)
+amm_compile_option(AMM_C_ALGO_ORIGINAL_MADDNESS "amm.c: Builds OriginalMaddness Algorithm" ON)
 # == Build (Kernel Parts) ==========================================================================
 # Note(hikettei): If you want to add a new backend named <BACKEND> you may have to do the following:
 # 1. Add a new option AMM_C_<BACKEND> in the kernel options above.

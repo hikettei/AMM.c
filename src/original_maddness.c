@@ -1,3 +1,5 @@
+#ifdef AMM_C_ALGO_ORIGINAL_MADDNESS
+
 #include "amm_dtype.h"
 #include "original_maddness.h"
 #include <stdio.h>
@@ -40,8 +42,9 @@ void amm_om_setB_f32(OriginalMaddnessGemm* gemm, amm_float32* B) {
 
 }
 
-
-/* TopLevel */
+/*
+  Top-level functions for OriginalMaddness
+*/
 void amm_om_setAoffline(OriginalMaddnessGemm* gemm, void* A_offline) {
   switch (gemm->dtype) {
   case AMM_DTYPE_F32:
@@ -90,3 +93,4 @@ void amm_om_setB(OriginalMaddnessGemm* gemm, void* B) {
   }
 }
 
+#endif // AMM_C_ALGO_ORIGINAL_MADDNESS

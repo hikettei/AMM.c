@@ -21,19 +21,10 @@ float* randn(int size) {
 }
 
 // TODO:
-// 1. original_maddness.h
-// 2. encoder.c -> original_maddness.c
-// 1. each kernels rename
-// 2. relocate maddness.c
-// ./include/original_maddness.h にはInterfaceのInclude (e.g.: struct)
-// ./include/kernels/comm_original_maddness.h にはKernel Specific StuffのInclude
-
-// [TODO] 多分別のToplevelを作る
 int main() {
   // Maddness Workflow
   // 1, Prototype Learning
   // Initialize matrix sampled from gaussian dist.
-
   OriginalMaddnessGemm* mgemm = amm_original_maddness_gemm_alloc(1024, 1024, 1024, 1024, 8, 4, AMM_DTYPE_F32);
   // We are going to approximate A[N M] @ B[M K]
   float *A_Offline = randn(mgemm->M * mgemm->N);
