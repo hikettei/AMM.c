@@ -47,6 +47,8 @@ function(amm_register_backend backend)
     set(${backend_tgt_nmsp} ${backend_tgt_lw_nmsp})
     if(${option_name})
         add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/src/kernels/${backend}")
+        # common header
+        target_include_directories(${backend_tgt_lw_nmsp} PRIVATE ./include/kernels)
         target_link_libraries(${AMM_CPP_TARGET} ${backend_tgt_lw_nmsp})
     endif()
 endfunction()
