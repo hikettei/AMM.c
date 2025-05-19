@@ -21,7 +21,7 @@ NDArray* randn(int i, int j) {
   int size = i * j;
   float *x = (float *)malloc(size * sizeof(float));
   for (int i=0; i<size; i++) x[i] = sqrt(-2.0 * log((float)rand() / RAND_MAX)) * cos(2.0 * M_PI * (float)rand() / RAND_MAX);
-  return amm_ndarray_alloc(2, (int[]){i, j}, (int[]){j, 1}, &x, AMM_DTYPE_F32);
+  return amm_ndarray_alloc(2, (int[]){i, j}, (int[]){j, 1}, x, AMM_DTYPE_F32);
 }
 
 // TODO:
