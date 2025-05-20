@@ -17,8 +17,14 @@ NDArray* amm_ndarray_alloc(int ndim, int* shape, int* strides, void* storage, AM
 void amm_ndarray_free(NDArray* arr);
 // TODO: Naming Convention inspired from ISL
 // __amm_give__ __amm_take__ __amm_keep__
+#ifndef __amm_give
 #define __amm_give
+#endif
+#ifndef __amm_take
 #define __amm_take
+#endif
+#ifndef __amm_keep
 #define __amm_keep
+#endif
 
-__amm_give NDArray* amm_ndarray_give_randn();
+__amm_give NDArray* amm_ndarray_randn();
