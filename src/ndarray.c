@@ -248,7 +248,7 @@ void _amm_step_simulated_loop(int current_rank, int nrank, const int* iteration_
   amm_assert(0 <= nargs && nargs <= 3, "Apply only supports 1, 2, or 3 arguments");
   if (current_rank == nrank - 1) {
     for (int i=0; i<nargs; i++) offsets[i] = 0; // Initialize
-    for (int r=0; r<current_rank-1; r++)
+    for (int r=0; r<current_rank; r++)
       for (int i=0; i<nargs; i++)
         offsets[i] += amm_axis_compute_index_on_memory(args[i]->shape->axes[r], index_placeholder[r][i]);
     if (any_has_random_access_p(current_rank, nargs, args)) {
@@ -260,8 +260,8 @@ void _amm_step_simulated_loop(int current_rank, int nrank, const int* iteration_
     } else {
       // If none of then has random access, we can just use range_applier which is faster.
       for (int i=0; i<nargs; i++) increments[i] = amm_ndarray_stride_of(args[i], current_rank);
+      for (int i=0; i<nargs; i++) offsets[i] += amm_axis_compute_index_on_memory(args[i]->shape->axes[current_rank], 0);
       // Call the range_applier
-      printf("range_invoker: %d, %d, %d\n", iteration_space[current_rank], offsets[0], increments[0]);
       range_invoker(iteration_space[current_rank], offsets, increments);
     }
   } else {
@@ -336,8 +336,8 @@ __amm_keep NDArray* _amm_ndarray_apply_unary(__amm_take NDArray* out, void (^ran
 #endif
 {
   _amm_ndarray_apply(1, (NDArray*[]){out},
-                     amm_lambda(void, (int size, int* offsets, int* increments) { range_applier(out, size, offsets[0], increments[0]); },
-                                amm_lambda(void, (int* indices) { element_applier(out, indices[0]); })));
+                     amm_lambda(void, (int size, int* offsets, int* increments) { range_applier(out->storage, size, offsets[0], increments[0]); },
+                                amm_lambda(void, (int* indices) { element_applier(out->storage, indices[0]); })));
   return out;
 }
 
@@ -348,8 +348,8 @@ __amm_keep NDArray* _amm_ndarray_apply_binary(__amm_take NDArray* out, __amm_kee
 #endif
 {
   _amm_ndarray_apply(2, (NDArray*[]){out, in},
-                     amm_lambda(void, (int size, int* offsets, int* increments) { range_applier(out, in, size, offsets[0], increments[0], offsets[1], increments[1]); },
-                                amm_lambda(void, (int* indices) { element_applier(out, in, indices[0], indices[1]); })));
+                     amm_lambda(void, (int size, int* offsets, int* increments) { range_applier(out->storage, in, size, offsets[0], increments[0], offsets[1], increments[1]); },
+                                amm_lambda(void, (int* indices) { element_applier(out->storage, in, indices[0], indices[1]); })));
   return out;
 }
 
@@ -360,8 +360,8 @@ __amm_keep NDArray* _amm_ndarray_apply_ternary(__amm_take NDArray* out, __amm_ke
 #endif
 {
   _amm_ndarray_apply(3, (NDArray*[]){out, x, y},
-                     amm_lambda(void, (int size, int* offsets, int* increments) { range_applier(out, x, y, size, offsets[0], increments[0], offsets[1], increments[1], offsets[2], increments[2]); },
-                                amm_lambda(void, (int* indices) { element_applier(out, x, y, indices[0], indices[1], indices[2]); })));
+                     amm_lambda(void, (int size, int* offsets, int* increments) { range_applier(out->storage, x, y, size, offsets[0], increments[0], offsets[1], increments[1], offsets[2], increments[2]); },
+                                amm_lambda(void, (int* indices) { element_applier(out->storage, x, y, indices[0], indices[1], indices[2]); })));
   return out;
 }
 // ~~ Implementations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -381,7 +381,7 @@ __amm_keep NDArray* amm_ndarray_sin(__amm_take NDArray* arr) {
 }
 
 __amm_keep NDArray* amm_ndarray_index_components(__amm_take NDArray* arr) {
-  amm_ndarray_apply_unary(float, printf("Index %d", x_i); x[x_i] = (float)x_i, arr);
+  amm_ndarray_apply_unary(float, x[x_i] = x_i, arr);
   return arr;
 }
 
@@ -390,9 +390,9 @@ __amm_keep NDArray* amm_ndarray_index_components(__amm_take NDArray* arr) {
 static void print_rec(const NDArray* arr,
                        int nrank,
                        const int* dims,
-                       size_t elem_size,
-                       int* idx,
-                       int level)
+                      AMM_DType elem_type,
+                      int* idx,
+                      int level)
 {
   if (level == nrank) {
     // compute flat index
@@ -400,16 +400,19 @@ static void print_rec(const NDArray* arr,
     for (int d = 0; d < nrank; ++d) {
       offset += amm_axis_compute_index_on_memory(arr->shape->axes[d], idx[d]);
     }
-    char* base = (char*)arr->storage;
-    void* ptr = base + offset * elem_size;
     // print element based on dtype size
-    if (elem_size == sizeof(int)) {
-      printf("%d", *((int*)ptr));
-    } else if (elem_size == sizeof(double)) {
-      printf("%g", *((double*)ptr));
-    } else {
-      // fallback: print bytes
-      printf("?");
+    switch (elem_type) {
+    case AMM_DTYPE_F32: printf("%f", *((float*)arr->storage)+offset); break;
+    case AMM_DTYPE_F64: printf("%f", *((double*)arr->storage)+offset); break;
+    case AMM_DTYPE_I8: printf("%zu", *((int8_t*)arr->storage)+offset); break;
+    case AMM_DTYPE_I16: printf("%zu", *((int16_t*)arr->storage)+offset); break;
+    case AMM_DTYPE_I32: printf("%zu", *((int32_t*)arr->storage)+offset); break;
+    case AMM_DTYPE_I64: printf("%llu", *((int64_t*)arr->storage)+offset); break;
+    case AMM_DTYPE_U8: printf("%zu", *((uint8_t*)arr->storage)+offset); break;
+    case AMM_DTYPE_U16: printf("%zu", *((uint16_t*)arr->storage)+offset); break;
+    case AMM_DTYPE_U32: printf("%zu", *((uint32_t*)arr->storage)+offset); break;
+    case AMM_DTYPE_U64: printf("%llu", *((uint64_t*)arr->storage)+offset); break;
+    default: printf("?");
     }
     return;
   }
@@ -424,7 +427,7 @@ static void print_rec(const NDArray* arr,
   for (int i = 0; i < head; ++i) {
     idx[level] = i;
     if (i > 0) printf(", ");
-    print_rec(arr, nrank, dims, elem_size, idx, level + 1);
+    print_rec(arr, nrank, dims, elem_type, idx, level + 1);
   }
   // ellipsis
   if (dim > 20) {
@@ -432,7 +435,7 @@ static void print_rec(const NDArray* arr,
     for (int i = dim - tail; i < dim; ++i) {
       printf(", ");
       idx[level] = i;
-      print_rec(arr, nrank, dims, elem_size, idx, level + 1);
+      print_rec(arr, nrank, dims, elem_type, idx, level + 1);
     }
   }
   printf("]");
@@ -448,10 +451,9 @@ void print_ndarray(__amm_keep NDArray* arr) {
   for (int i = 0; i < nrank; ++i) {
     dims[i] = amm_ndarray_size_of(arr, i);
   }
-  size_t elem_size = amm_dtype_size(arr->dtype);
 
   int* idx = malloc(nrank * sizeof *idx);
-  print_rec(arr, nrank, dims, elem_size, idx, 0);
+  print_rec(arr, nrank, dims, arr->dtype, idx, 0);
   printf("\n");
   free(idx);
   free(dims);

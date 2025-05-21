@@ -95,7 +95,7 @@ __amm_keep NDArray* amm_ndarray_expand(__amm_take NDArray* arr, int* expand);
         op; }})                                                         \
 
 #define amm_expand_applier_ternary(dtype_out, dtype_in1, dtype_in2, op) \
-  amm_lambda(void, (dtype_out* out_, dtype_in1* x_, dtype_in2* y), int size, int out_offset, int inco, int x_offset, int incx, int y_offset, int incy) { \
+  amm_lambda(void, (void* out_, void* x_, void* y), int size, int out_offset, int inco, int x_offset, int incx, int y_offset, int incy) { \
     for (int n=0; n<size; n++) {                                        \
       int out_i = out_offfset + n * inco;                               \
       int x_i = x_offset + n * incx;                                    \
