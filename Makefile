@@ -10,3 +10,11 @@ build: ## Build AMM.c
 	@echo "Building AMM.c..."
 	@mkdir -p build
 	@cmake -S . -B ./build -DCMAKE_C_COMPILER=$(CC) -G Ninja && cd build && ninja
+
+.PHONY: test
+test: ## Run unit tests
+	@echo "Building AMM.c..."
+	@mkdir -p build
+	@cmake -S . -B ./build -DCMAKE_C_COMPILER=$(CC) -DAMM_C_BUILD_TESTS=ON -G Ninja && cd build && ninja
+	@echo "Running unit tests..."
+	@./build/amm_test
