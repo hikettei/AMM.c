@@ -9,6 +9,7 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <math.h>
+#include <string.h>
 
 int amm_axis_compute_index_on_memory(Axis* axis, int position) {
   if (axis->random_access_idx == NULL) {
@@ -19,6 +20,7 @@ int amm_axis_compute_index_on_memory(Axis* axis, int position) {
     return ((int*)axis->random_access_idx)[position] * axis->stride;
   }
 }
+
 /*
   ShapeTracker Initialization
 */
@@ -129,6 +131,24 @@ void amm_ndarray_free(__amm_take NDArray* arr) {
     free(arr->storage);
     free(arr);
   }
+}
+// ~~~ Initialization ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+__amm_give NDArray* amm_ndarray_zeros(Shape* shape, AMM_DType dtype) {
+  if (!shape) {
+    fprintf(stderr, "amm_ndarray_zeros: shape is NULL\n");
+    return NULL;
+  }
+  int total_size = 1;
+  for (int i = 0; i < shape->nrank; ++i) {
+    total_size *= shape->axes[i]->size;
+  }
+  void* storage = malloc(total_size * amm_dtype_size(dtype));
+  if (!storage) {
+    fprintf(stderr, "amm_ndarray_zeros: failed to alloc storage\n");
+    return NULL;
+  }
+  memset(storage, 0, total_size * amm_dtype_size(dtype));
+  return amm_ndarray_alloc(shape, storage, dtype);
 }
 // ~~~ Accessors ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 int amm_ndarray_rank(__amm_keep const NDArray* arr) {
@@ -358,3 +378,79 @@ __amm_keep NDArray* amm_ndarray_sin(__amm_take NDArray* arr) {
   return arr;
 }
 
+__amm_keep NDArray* amm_ndarray_index_components(__amm_take NDArray* arr) {
+  amm_ndarray_apply_unary(int, x[x_i] = (int)x_i, arr);
+  return arr;
+}
+
+// ~~ Printers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// recursive print helper
+static void print_rec(const NDArray* arr,
+                       int nrank,
+                       const int* dims,
+                       size_t elem_size,
+                       int* idx,
+                       int level)
+{
+  if (level == nrank) {
+    // compute flat index
+    size_t offset = 0;
+    for (int d = 0; d < nrank; ++d) {
+      offset += amm_axis_compute_index_on_memory(arr->shape->axes[d], idx[d]);
+    }
+    char* base = (char*)arr->storage;
+    void* ptr = base + offset * elem_size;
+    // print element based on dtype size
+    if (elem_size == sizeof(int)) {
+      printf("%d", *((int*)ptr));
+    } else if (elem_size == sizeof(double)) {
+      printf("%g", *((double*)ptr));
+    } else {
+      // fallback: print bytes
+      printf("?");
+    }
+    return;
+  }
+  printf("[");
+  int dim = dims[level];
+  int head = dim, tail = 0;
+  if (dim > 20) {
+    head = 10;
+    tail = 10;
+  }
+  // print head elements
+  for (int i = 0; i < head; ++i) {
+    idx[level] = i;
+    if (i > 0) printf(", ");
+    print_rec(arr, nrank, dims, elem_size, idx, level + 1);
+  }
+  // ellipsis
+  if (dim > 20) {
+    printf(", ~");
+    for (int i = dim - tail; i < dim; ++i) {
+      printf(", ");
+      idx[level] = i;
+      print_rec(arr, nrank, dims, elem_size, idx, level + 1);
+    }
+  }
+  printf("]");
+}
+// print_ndarray: prints array contents like numpy, with "~" ellipsis if more than 20 elements
+void print_ndarray(__amm_keep NDArray* arr) {
+  if (!arr || !arr->shape || !arr->storage) {
+    printf("<invalid array>\n");
+    return;
+  }
+  int nrank = amm_ndarray_rank(arr);
+  int* dims = malloc(nrank * sizeof *dims);
+  for (int i = 0; i < nrank; ++i) {
+    dims[i] = amm_ndarray_size_of(arr, i);
+  }
+  size_t elem_size = amm_dtype_size(arr->dtype);
+
+  int* idx = malloc(nrank * sizeof *idx);
+  print_rec(arr, nrank, dims, elem_size, idx, 0);
+  printf("\n");
+  free(idx);
+  free(dims);
+}

@@ -67,8 +67,8 @@ int amm_ndarray_stride_of(__amm_keep const NDArray* arr, int dim);
 int amm_ndarray_total_size(__amm_keep const NDArray* arr);
 bool amm_ndarray_is_contiguous(__amm_keep const NDArray* arr);
 // ~~~ Initializers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// __amm_give NDArray* amm_ndarray_randn();
-// __amm_give NDArray* amm_ndarray_zeros();
+__amm_give NDArray* amm_ndarray_zeros(Shape* shape, AMM_DType dtype);
+__amm_give NDArray* amm_ndarray_randn(Shape* shape, AMM_DType dtype);
 // TODO: __amm_give NDArray* amm_ndarray_copy(__amm_keep NDArray* arr);
 // ~~~ Movements ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // TODO: The only operation here is apply_map, (this can implement even matmul, im2col, which is enough for our goal)
@@ -126,7 +126,9 @@ __amm_keep NDArray* _amm_ndarray_apply_ternary(__amm_take NDArray* out, __amm_ke
 #endif
 // ~~ Operations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 __amm_keep NDArray* amm_ndarray_sin(__amm_take NDArray* arr);
-// Cast is binary?
+// TODO:
+// - ndarray_cast
+// - ndarray_arange
 
 // TODO: Use either of OpenBLAS or Our implementation
 // __amm_keep NDArray* _amm_ndarray_matmul_naive(); <- wrapping and make it testable.
@@ -138,3 +140,4 @@ __amm_keep NDArray* amm_ndarray_sin(__amm_take NDArray* arr);
 // TODO: 再起的にIndexを計算
 // TODO: Contiguous Partを見つけたら，BLAS_LIKE Operationでvectorizeとかして計算
 
+void print_ndarray(__amm_keep NDArray* arr);
