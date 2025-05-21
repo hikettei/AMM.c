@@ -188,11 +188,39 @@ __amm_keep NDArray* amm_ndarray_permute(__amm_take NDArray* arr,
   free(old_axes);
   return arr;
 }
-// ~~ Apply ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// ~~ Apply ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#if defined(AMM_C_GCC_MODE)
+__amm_keep NDArray* _amm_ndarray_apply_unary(__amm_take NDArray* out, void (*range_applier)(void*, int, int, int), void (*element_applier)(void*, int))
+#elif defined(AMM_C_BLOCK_MODE)
+__amm_keep NDArray* _amm_ndarray_apply_unary(__amm_take NDArray* out, void (^range_applier)(void*, int, int, int), void (^element_applier)(void*, int))
+#endif
+{
+
+  return out;
+}
+
+#if defined(AMM_C_GCC_MODE)
+__amm_keep NDArray* _amm_ndarray_apply_binary(__amm_take NDArray* out, __amm_keep NDArray* in, void (*range_applier)(void*, void*, int, int, int, int, int), void (*element_applier)(void*, int, int))
+#elif defined(AMM_C_BLOCK_MODE)
+__amm_keep NDArray* _amm_ndarray_apply_binary(__amm_take NDArray* out, __amm_keep NDArray* in, void (^range_applier)(void*, void*, int, int, int, int, int), void (^element_applier)(void*, int, int))
+#endif
+{
+
+  return out;
+}
+
+#if defined(AMM_C_GCC_MODE)
+__amm_keep NDArray* _amm_ndarray_apply_ternary(__amm_take NDArray* out, __amm_keep NDArray* x, __amm_keep NDArray* y, void (*range_applier)(void*, void*, void*, int, int, int, int, int, int, int), void (*element_applier)(void*, int, int, int))
+#elif defined(AMM_C_BLOCK_MODE)
+__amm_keep NDArray* _amm_ndarray_apply_ternary(__amm_take NDArray* out, __amm_keep NDArray* x, __amm_keep NDArray* y, void (^range_applier)(void*, void*, void*, int, int, int, int, int, int, int), void (^element_applier)(void*, int, int, int))
+#endif
+{
+
+  return out;
+}
 
 
 // ~~ Operations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 __amm_keep NDArray* amm_ndarray_sin(__amm_take NDArray* arr) {
   switch (arr->dtype) { // TODO: Make Switch Macro
   case AMM_DTYPE_F32:
