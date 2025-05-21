@@ -126,6 +126,8 @@ __amm_keep NDArray* _amm_ndarray_apply_ternary(__amm_take NDArray* out, __amm_ke
 #endif
 // ~~ Operations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 __amm_keep NDArray* amm_ndarray_sin(__amm_take NDArray* arr);
+
+__amm_keep NDArray* amm_ndarray_index_components(__amm_take NDArray* arr);
 // TODO:
 // - ndarray_cast
 // - ndarray_arange

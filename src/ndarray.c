@@ -246,7 +246,7 @@ void _amm_step_simulated_loop(int current_rank, int nrank, const int* iteration_
   // Index_Placeholder[NTH_ARG, NTH_RANK] -> args[nth_arg][compute_memory_index(index_placeholder[nth_rank])]
   // Note: we keep index_placeholder because it will be replaced w/ each args' offsets in the future.
   amm_assert(0 <= nargs && nargs <= 3, "Apply only supports 1, 2, or 3 arguments");
-  if (current_rank == nrank) {
+  if (current_rank == nrank - 1) {
     for (int i=0; i<nargs; i++) offsets[i] = 0; // Initialize
     for (int r=0; r<current_rank-1; r++)
       for (int i=0; i<nargs; i++)
@@ -255,14 +255,14 @@ void _amm_step_simulated_loop(int current_rank, int nrank, const int* iteration_
       // If any of them has random access, we need to use element_applier
       for (int nth=0; nth<iteration_space[current_rank]; nth++) {
         for (int i=0; i<nargs; i++) offsets_tmp[i] = offsets[i] + amm_axis_compute_index_on_memory(args[i]->shape->axes[current_rank], nth);
-        // Call the element_applier
-
+        elwise_invoker(offsets_tmp);
       }
     } else {
       // If none of then has random access, we can just use range_applier which is faster.
       for (int i=0; i<nargs; i++) increments[i] = amm_ndarray_stride_of(args[i], current_rank);
       // Call the range_applier
-      
+      printf("range_invoker: %d, %d, %d\n", iteration_space[current_rank], offsets[0], increments[0]);
+      range_invoker(iteration_space[current_rank], offsets, increments);
     }
   } else {
     // Updating Offsets
@@ -297,6 +297,8 @@ void _amm_ndarray_apply(int nargs, NDArray** args,
   amm_assert(nargs > 0, "Invalid number of arguments");
   int nrank = args[0]->shape->nrank; // temporary! should be optimized further!!
   int* iteration_space = malloc(sizeof(int) * nrank);
+
+  
   int** index_placeholder = (int**)malloc(sizeof(int*) * nrank);
   amm_assert(iteration_space, "Failed to alloc iteration_space");
   for (int i=0; i<nrank; i++) {
@@ -315,7 +317,7 @@ void _amm_ndarray_apply(int nargs, NDArray** args,
   amm_assert(index_placeholder, "Failed to alloc index_placeholder");
   amm_assert(offsets, "Failed to alloc offsets");
   amm_assert(increments, "Failed to alloc increments");
-  for (int i=0; i<nrank; i++) iteration_space[i] = args[0]->shape->axes[i]->size;
+  for (int i=0; i<nrank; i++) iteration_space[i] = amm_ndarray_size_of(args[0], i);
   // Start simulating the loop
   _amm_step_simulated_loop(0, nrank, iteration_space, nargs, args, index_placeholder, offsets, offsets_tmp, increments,
                            range_invoker, elwise_invoker);
@@ -379,7 +381,7 @@ __amm_keep NDArray* amm_ndarray_sin(__amm_take NDArray* arr) {
 }
 
 __amm_keep NDArray* amm_ndarray_index_components(__amm_take NDArray* arr) {
-  amm_ndarray_apply_unary(int, x[x_i] = (int)x_i, arr);
+  amm_ndarray_apply_unary(float, printf("Index %d", x_i); x[x_i] = (float)x_i, arr);
   return arr;
 }
 

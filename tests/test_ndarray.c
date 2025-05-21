@@ -35,9 +35,13 @@ void test_ndarray_creation() {
   printf("Passed: test_ndarray_creation\n");
 }
 
-void test_ndarray_arange() {
-  
+void test_ndarray_arange_and_contiguous_elwise() {
+  NDArray* arr = amm_ndarray_zeros(amm_make_row_major_shape(2, (int[]){10, 10}), AMM_DTYPE_F32);
+  arr = amm_ndarray_index_components(arr);
+  print_ndarray(arr);
 }
+
 int main(void) {
   test_ndarray_creation();
+  test_ndarray_arange_and_contiguous_elwise();
 }
