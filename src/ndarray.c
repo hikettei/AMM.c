@@ -369,10 +369,10 @@ __amm_keep NDArray* _amm_ndarray_apply_ternary(__amm_take NDArray* out, __amm_ke
   __amm_keep NDArray* amm_ndarray_##name(__amm_take NDArray* arr) {     \
     switch (arr->dtype)  {                                              \
     case AMM_DTYPE_F32:                                                 \
-      amm_ndarray_apply_unary(float, x[x_i] = op(x[x_i]), arr);       \
+      amm_ndarray_apply_unary(float, x[x_i] = op(x[x_i]), arr);         \
       break;                                                            \
     case AMM_DTYPE_F64:                                                 \
-      amm_ndarray_apply_unary(double, x[x_i] = dop(x[x_i]), arr);     \
+      amm_ndarray_apply_unary(double, x[x_i] = dop(x[x_i]), arr);       \
       break;                                                            \
     default:                                                            \
       fprintf(stderr, "amm_ndarray_" #name ": " #name " does not support %d\n", arr->dtype); \
