@@ -17,7 +17,6 @@ set(AMM_C_SOURCES
     src/ndarray.c
     src/argsort.c
 #    src/original_maddness.c
-#    tmp_test.c
     )
 add_executable(${AMM_C_TARGET} ${AMM_C_SOURCES})
 target_include_directories(${AMM_C_TARGET} PRIVATE ./include/kernels ./include)
@@ -73,4 +72,8 @@ amm_register_backend(avx512)
 amm_register_backend(arm64)
 amm_register_backend(metal)
 amm_register_backend(cuda)
-# ===============================================================================================
+# == Build (Entry Points) ==========================================================================
+option(AMM_C_BUILD_TESTS "Build unit tester" ON)
+if(AMM_C_BUILD_TESTS)
+  add_subdirectory(tests)
+endif()

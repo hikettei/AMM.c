@@ -120,4 +120,21 @@ void amm_ndarray_free(__amm_take NDArray* arr) {
     free(arr);
   }
 }
+// ~~~ Accessors ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+int amm_ndarray_rank(__amm_keep NDArray* arr) {
+  return arr ? arr->shape->nrank : 0;
+}
+
+int amm_ndarray_size_of(__amm_keep NDArray* arr, int dim) {
+  if (!arr) return 0;
+  if (dim < 0 || dim >= arr->shape->nrank) return 0;
+  return arr->shape->axes[dim]->size;
+}
+
+int amm_ndarray_stride_of(__amm_keep NDArray* arr, int dim) {
+  if (!arr) return 0;
+  if (dim < 0 || dim >= arr->shape->nrank) return 0;
+  return arr->shape->axes[dim]->stride;
+}
 // ~~~ Memory Allocations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+int main() {} // tmp

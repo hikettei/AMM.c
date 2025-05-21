@@ -61,4 +61,3 @@ __amm_give NDArray* amm_ndarray_randn();
 __amm_give NDArray* amm_ndarray_zeros();
 // ~~~ Movements ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 __amm_keep NDArray* amm_ndarray_reshape(__amm_keep NDArray* arr);
-
