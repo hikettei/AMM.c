@@ -77,15 +77,15 @@ __amm_give Shape* amm_make_row_major_shape(int nrank, int* shape) {
   return s;
 }
 
-void amm_free_axis(Axis* axis) {
+void amm_axis_free(Axis* axis) {
   if (!axis) return;
   if (axis->random_access_idx != NULL) free(axis->random_access_idx);
   free(axis);
 }
 
-void amm_free_shape(__amm_take Shape *s) {
+void amm_shape_free(__amm_take Shape *s) {
   if (!s) return;
-  for (int i = 0; i < s->nrank; ++i) amm_free_axis(s->axes[i]);
+  for (int i = 0; i < s->nrank; ++i) amm_axis_free(s->axes[i]);
   free(s->axes);
   free(s);
 }
@@ -112,13 +112,13 @@ __amm_give NDArray* amm_ndarray_alloc(Shape* shape, void* storage, AMM_DType dty
 
 void amm_ndarray_free(__amm_take NDArray* arr) {
   if (arr) {
-    amm_free_shape(arr->shape);
+    amm_shape_free(arr->shape);
     free(arr->storage);
     free(arr);
   }
 }
 // ~~~ Accessors ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-int amm_ndarray_rank(__amm_keep NDArray* arr) {
+static inline int amm_ndarray_rank(__amm_keep const NDArray* arr) {
   return arr ? arr->shape->nrank : 0;
 }
 
@@ -141,4 +141,38 @@ int amm_ndarray_stride_of(__amm_keep NDArray* arr, int dim) {
   }
   return arr->shape->axes[dim]->stride;
 }
-// ~~~ Memory Allocations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+bool amm_ndarray_is_contiguous(__amm_keep NDArray* arr) {
+  if (!arr) return false;
+  return arr->shape->is_contiguous;
+}
+// ~~ Movements ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+__amm_keep NDArray* amm_ndarray_reshape(__amm_keep NDArray* arr, Shape* new_shape) {
+  // Reshape gives a new shape and new stride without changing the stride
+  if (!arr) return 0;
+  amm_assert(amm_ndarray_is_contiguous(arr), "Reshape only works for contiguous arrays");
+  amm_shape_free(arr->shape); // Replaces the shape
+  arr->shape = new_shape;
+  return arr;
+}
+
+__amm_keep NDArray* amm_ndarray_permute(__amm_keep NDArray* arr,
+                                        const int* perm) {
+  if (!arr) return NULL;
+  int nrank = amm_ndarray_rank(arr);
+  Axis** old_axes = arr->shape->axes;
+  Axis** new_axes = malloc(nrank * sizeof *new_axes);
+  if (!new_axes) {
+    fprintf(stderr, "amm_ndarray_permute: failed to alloc new_axes\n");
+    return NULL;
+  }
+  for (int i = 0; i < nrank; ++i) {
+    int p = perm[i];
+    amm_assert(p >= 0 && p < nrank, "amm_ndarray_permute: invalid perm[%d]=%d", i, p);
+    new_axes[i] = old_axes[p];
+  }
+  // replace axes array and free old
+  arr->shape->axes = new_axes;
+  free(old_axes);
+  return arr;
+}
