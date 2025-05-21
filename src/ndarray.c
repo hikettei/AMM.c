@@ -1,11 +1,14 @@
 #include "ndarray.h"
 #include "utils.h"
+#ifndef AMM_UTILS_H
+#error "ndarray.c: either of AMM_C_GCC_MODE or AMM_C_BLOCK_MODE must be defined by loading utils.h"
+#endif
 #include "amm_dtype.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdbool.h>
-
+#include <math.h>
 /*
   ShapeTracker Initialization
 */
@@ -186,4 +189,22 @@ __amm_keep NDArray* amm_ndarray_permute(__amm_take NDArray* arr,
   return arr;
 }
 // ~~ Apply ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+// ~~ Operations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+__amm_keep NDArray* amm_ndarray_sin(__amm_take NDArray* arr) {
+  switch (arr->dtype) { // TODO: Make Switch Macro
+  case AMM_DTYPE_F32:
+    amm_ndarray_apply_f_unary(float, sinf, arr);
+    break;
+  case AMM_DTYPE_F64:
+    amm_ndarray_apply_f_unary(double, sin, arr);
+    break;
+  default:
+    fprintf(stderr, "amm_ndarray_sin: unsupported dtype %d\n", arr->dtype);
+    return NULL;
+  }
+  return arr;
+}
 
