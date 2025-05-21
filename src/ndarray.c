@@ -124,13 +124,21 @@ int amm_ndarray_rank(__amm_keep NDArray* arr) {
 
 int amm_ndarray_size_of(__amm_keep NDArray* arr, int dim) {
   if (!arr) return 0;
-  if (dim < 0 || dim >= arr->shape->nrank) return 0;
+  amm_assert(arr->shape->nrank > 0, "Invalid shape for size_of");
+  if (dim < 0) {
+    amm_assert(arr->shape->nrank + dim >= 0, "Invalid dimension %d for size_of", dim);
+    return amm_ndarray_size_of(arr, arr->shape->nrank + dim);
+  }
   return arr->shape->axes[dim]->size;
 }
 
 int amm_ndarray_stride_of(__amm_keep NDArray* arr, int dim) {
   if (!arr) return 0;
-  if (dim < 0 || dim >= arr->shape->nrank) return 0;
+  amm_assert(arr->shape->nrank > 0, "Invalid shape for stride_of");
+  if (dim < 0) {
+    amm_assert(arr->shape->nrank + dim >= 0, "Invalid dimension %d for stride_of", dim);
+    return amm_ndarray_stride_of(arr, arr->shape->nrank + dim);
+  }
   return arr->shape->axes[dim]->stride;
 }
 // ~~~ Memory Allocations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

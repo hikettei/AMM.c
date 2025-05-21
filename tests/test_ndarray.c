@@ -25,6 +25,10 @@ void test_ndarray_creation() {
     amm_assert(amm_ndarray_stride_of(arr1, i) == valid_stride1[i], "Invalid stride for arr1 at dimension %d: expected %d, got %d. ", i, valid_stride1[i], amm_ndarray_stride_of(arr1, i));
     amm_assert(amm_ndarray_stride_of(arr2, i) == valid_stride2[i], "Invalid stride for arr2 at dimension %d: expected %d, got %d. ", i, valid_stride2[i], amm_ndarray_stride_of(arr2, i));
   }
+  // -1 Accessing
+  amm_assert(amm_ndarray_size_of(arr1, -1) == 5, "Invalid size for arr1 at dimension -1: expected 5, got %d. ", amm_ndarray_size_of(arr1, -1));
+  amm_assert(amm_ndarray_stride_of(arr1, -1) == 1, "Invalid stride for arr1 at dimension -1: expected 1, got %d. ", amm_ndarray_stride_of(arr1, -1));
+        
   amm_ndarray_free(arr1);
   amm_ndarray_free(arr2);
   printf("Passed: test_ndarray_creation\n");
