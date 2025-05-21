@@ -9,6 +9,16 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <math.h>
+
+int amm_axis_compute_index_on_memory(Axis* axis, int position) {
+  if (axis->random_access_idx == NULL) {
+    // Strided Access
+    return (axis->offset + position) * axis->stride;
+  } else {
+    // Random Access
+    return axis->random_access_idx[position];
+  }
+}
 /*
   ShapeTracker Initialization
 */
@@ -188,14 +198,80 @@ __amm_keep NDArray* amm_ndarray_permute(__amm_take NDArray* arr,
   free(old_axes);
   return arr;
 }
-// ~~ Apply ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// ~~ Shape Solver ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+__amm_give Shape* amm_shape_merge_dims(Shape* shape) {
+  // Gives the new shape
+}
+// ~~ Apply ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+int any_has_random_access_p(int nrank, int nargs, NDArray** args) {
+  for (int i=0; i<nargs; i++) {
+    if (args[i]->shape->axes[nrank]->random_access_idx != NULL) return 1;
+  }
+  return 0;
+}
+// TODO: Optimize _amm_step_simulated_loop correctly
+// 1. Work Correctly and tests are passing in CI
+// 2. Optimize the computation of index with regard to index_placeholder caching
+// 3. Ensure tests are passing.
+void _amm_step_simulated_loop(int current_rank, int nrank, const int* iteration_space, int nargs, NDArray** args, int* index_placeholder) {
+  // Index_Placeholder[NTH_ARG, NTH_RANK] -> args[nth_arg][compute_memory_index(index_placeholder[nth_rank])]
+  // Note: we keep index_placeholder because it will be replaced w/ each args' offsets in the future.
+  if (current_rank == nrank) {
+    if (any_has_random_access_p(current_rank, nargs, args)) {
+      // If any of them has random access, we need to use element_applier
+    } else {
+      // If none of then has random access, we can just use range_applier which is faster.
+      
+    }
+  } else {
+    // Updating Offsets
+    for (int nth_element=0; nth_element<iteration_space[current_rank]; nth_element++) {
+      for (int nth_arg=0; nth_arg<nargs; nth_arg++) index_placeholder[nth_element][nth_arg] = nth_element;
+      // Here, the rank (i+1) loop is independent of the rank (i) loop so that we have no need to realloc the index_placeholder
+      // Move forward
+      _amm_step_simulated_loop(current_rank + 1, nrank, iteration_space, nargs, args, index_placeholder);
+    }
+  }
+}
+
+void _amm_ndarray_apply(int nargs, NDArray** args) {
+  // Impl:
+  // 1. Simplify all shape
+  // 2. Select the tallest one
+  // 3. Reshape other arrays to match them
+  // 4. apply recursively (similar to Caten Shape Solver)
+  
+  // x = simplified_shape
+  // Input: 仮想的なLoopSpaceと，各TensorのSimplifyされたShape
+  // for 0..3
+  //   for 0..5
+  //      ...
+  amm_assert(nargs > 0, "Invalid number of arguments");
+  int nrank = args[0]->shape->nrank; // temporary! should be optimized further!!
+  int* iteration_space = malloc(sizeof(int) * nrank);
+  int* index_placeholder = malloc(sizeof(int) * nrank * nargs); // NDArray [nrank, nargs]
+  /*
+    iteration_space: 仮想的なLoopSpace
+    for 0..3
+       for 0..5
+         ..
+  */
+  amm_assert(iteration_space, "Failed to alloc iteration_space");
+  amm_assert(index_placeholder, "Failed to alloc index_placeholder");
+  for (int i=0; i<nrank; i++) iteration_space[i] = args[0]->shape->axes[i]->size;
+  // Start simulating the loop
+  _amm_step_simulated_loop(0, nrank, iteration_space, nargs, args, index_placeholder);
+  free(iteration_space);
+  free(index_placeholder);
+}
+// ~~ Apply Wrappers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #if defined(AMM_C_GCC_MODE)
 __amm_keep NDArray* _amm_ndarray_apply_unary(__amm_take NDArray* out, void (*range_applier)(void*, int, int, int), void (*element_applier)(void*, int))
 #elif defined(AMM_C_BLOCK_MODE)
 __amm_keep NDArray* _amm_ndarray_apply_unary(__amm_take NDArray* out, void (^range_applier)(void*, int, int, int), void (^element_applier)(void*, int))
 #endif
 {
-
+  _amm_ndarray_apply(1, (NDArray*[]){out});
   return out;
 }
 
@@ -205,7 +281,7 @@ __amm_keep NDArray* _amm_ndarray_apply_binary(__amm_take NDArray* out, __amm_kee
 __amm_keep NDArray* _amm_ndarray_apply_binary(__amm_take NDArray* out, __amm_keep NDArray* in, void (^range_applier)(void*, void*, int, int, int, int, int), void (^element_applier)(void*, int, int))
 #endif
 {
-
+  _amm_ndarray_apply(2, (NDArray*[]){in, out});
   return out;
 }
 
@@ -215,12 +291,10 @@ __amm_keep NDArray* _amm_ndarray_apply_ternary(__amm_take NDArray* out, __amm_ke
 __amm_keep NDArray* _amm_ndarray_apply_ternary(__amm_take NDArray* out, __amm_keep NDArray* x, __amm_keep NDArray* y, void (^range_applier)(void*, void*, void*, int, int, int, int, int, int, int), void (^element_applier)(void*, int, int, int))
 #endif
 {
-
+  _amm_ndarray_apply(3, (NDArray*[]){out, x, y});
   return out;
 }
-
-
-// ~~ Operations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// ~~ Implementations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 __amm_keep NDArray* amm_ndarray_sin(__amm_take NDArray* arr) {
   switch (arr->dtype) { // TODO: Make Switch Macro
   case AMM_DTYPE_F32:
@@ -230,7 +304,7 @@ __amm_keep NDArray* amm_ndarray_sin(__amm_take NDArray* arr) {
     amm_ndarray_apply_f_unary(double, sin, arr);
     break;
   default:
-    fprintf(stderr, "amm_ndarray_sin: unsupported dtype %d\n", arr->dtype);
+    fprintf(stderr, "amm_ndarray_sin: sin only supports for float and double, getting: %d\n", arr->dtype);
     return NULL;
   }
   return arr;

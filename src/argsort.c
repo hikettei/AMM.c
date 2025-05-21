@@ -1,7 +1,7 @@
 #include "argsort.h"
 #include <stdio.h>
 #include <stdlib.h>
-
+// TODO: Move to ndarray.c
 static int cmp_pair(const void *a, const void *b) {
     const Pair *pa = (const Pair*)a;
     const Pair *pb = (const Pair*)b;

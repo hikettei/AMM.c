@@ -27,6 +27,8 @@ struct Axis {
   void* random_access_idx; // If random_access_idx was set to int* pointer, ndarray will read the corresponding index by random_access_idx[0], ... random_access_idx[size-1]
 };
 
+int amm_axis_compute_index_on_memory(Axis* axis, int position);
+
 typedef struct Shape Shape;
 struct Shape {
   int nrank;
@@ -110,7 +112,7 @@ __amm_keep NDArray* amm_ndarray_expand(__amm_take NDArray* arr, int* expand);
 #define amm_ndarray_apply_binary(dtype_out, dtype_in, form, out_arr, in_arr) _amm_ndarray_apply_binary(out_arr, in_arr, amm_expand_applier_binary(dtype_out, dtype_in, form), amm_lambda(void, (void* out_, void* x_, int out_i, int x_i) { dtype_out* out = (dtype_out*)out_; dtype_in* x = (dtype_in*)x_; form; }));
 #define amm_ndarray_apply_ternary(dtype_out, dtype_in1, dtype_in2, form, out_arr, in_arr1, in_arr2) _amm_ndarray_apply_ternary(out_arr, in_arr1, in_arr2, amm_expand_applier_ternary(dtype_out, dtype_in1, dtype_in2, form), amm_lambda(void, (void* out_, void* x_, void* y_, int out_i, int x_i, int y_i) { dtype_out* out = (dtype_out*)out_; dtype_in1* x = (dtype_in1*)x_; dtype_in2* y = (dtype_in2*)y_; form; }));
 
-__amm_keep NDArray* _amm_ndarray_apply();
+// __amm_keep NDArray* _amm_ndarray_apply();
 
 #if defined(AMM_C_GCC_MODE)
 __amm_keep NDArray* _amm_ndarray_apply_unary(__amm_take NDArray* out, void (*range_applier)(void*, int, int, int), void (*element_applier)(void*, int));
@@ -125,6 +127,10 @@ __amm_keep NDArray* _amm_ndarray_apply_ternary(__amm_take NDArray* out, __amm_ke
 // ~~ Operations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 __amm_keep NDArray* amm_ndarray_sin(__amm_take NDArray* arr);
 // Cast is binary?
+
+// TODO: Use either of OpenBLAS or Our implementation
+// __amm_keep NDArray* _amm_ndarray_matmul_naive(); <- wrapping and make it testable.
+// __amm_keep NDArray* amm_ndarray_matmul();
 
 // #define amm_ndarray_apply_binary(applier, arr)
 // Implement Cast how to?
