@@ -1,22 +1,8 @@
 #include "amm_dtype.h"
+#include <stdarg.h>
+#include <stdbool.h>
+
 #pragma once
-/*
-  NDArray is a wrapper for *storage with shape and strides.
-*/
-
-typedef struct NDArray NDArray;
-struct NDArray {
-  int ndim;
-  int *shape;
-  int *strides;
-  void* storage;
-  AMM_DType dtype;
-};
-
-NDArray* amm_ndarray_alloc(int ndim, int* shape, int* strides, void* storage, AMM_DType dtype);
-void amm_ndarray_free(NDArray* arr);
-// TODO: Naming Convention inspired from ISL
-// __amm_give__ __amm_take__ __amm_keep__
 #ifndef __amm_give
 #define __amm_give
 #endif
@@ -26,5 +12,49 @@ void amm_ndarray_free(NDArray* arr);
 #ifndef __amm_keep
 #define __amm_keep
 #endif
+/*
+  NDArray is a wrapper for *storage with shape and strides.
+*/
+typedef struct Axis Axis;
+struct Axis {
+  int size;
+  int offset;
+  int stride;
+  void* random_access_idx; // If random_access_idx was set to int* pointer, ndarray will read the corresponding index by random_access_idx[0], ... random_access_idx[size-1]
+};
 
+typedef struct Shape Shape;
+struct Shape {
+  int nrank;
+  Axis** axes;
+  bool is_contiguous = TRUE;
+};
+
+typedef struct NDArray NDArray;
+struct NDArray {
+  Shape* shape;
+  void* storage;
+  AMM_DType dtype;
+};
+/*
+  Shaping
+*/
+Shape* amm_make_column_major_shape(...);
+Shape* amm_make_row_major_shape(...);
+/*
+  Allocation
+*/
+__amm_give NDArray* amm_ndarray_alloc(Shape* shape, AMM_DType dtype);
+void amm_ndarray_free(__amm_take NDArray* arr);
+/*
+  Accessors
+*/
+int amm_ndarray_rank(__amm_keep NDArray* arr);
+int amm_ndarray_size_of(__amm_keep NDArray* arr, int dim);
+int amm_ndarray_stride_of(__amm_keep NDArray* arr, int dim);
+// ~~~ Initializers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 __amm_give NDArray* amm_ndarray_randn();
+__amm_give NDArray* amm_ndarray_zeros();
+// ~~~ Movements ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+__amm_keep NDArray* amm_ndarray_reshape(__amm_keep NDArray* arr);
+

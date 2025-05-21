@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 
 NDArray* amm_ndarray_alloc(int ndim, int* shape, int* strides, void* storage, AMM_DType dtype) {
   struct NDArray *arr = malloc(sizeof *arr);
@@ -28,3 +29,6 @@ void amm_ndarray_free(NDArray* arr) {
     free(arr);
   }
 }
+
+// ~~~ Memory Allocations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+

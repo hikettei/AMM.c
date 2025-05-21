@@ -16,8 +16,9 @@ option(AMM_C_CUDA   "amm.c: Use CUDA"  OFF)
 set(AMM_C_SOURCES
     src/ndarray.c
     src/argsort.c
-    src/original_maddness.c
-    tmp_test.c)
+#    src/original_maddness.c
+#    tmp_test.c
+    )
 add_executable(${AMM_C_TARGET} ${AMM_C_SOURCES})
 target_include_directories(${AMM_C_TARGET} PRIVATE ./include/kernels ./include)
 target_compile_options(${AMM_C_TARGET} PUBLIC -Wall -lm)
