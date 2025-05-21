@@ -1,10 +1,9 @@
 #include "amm_dtype.h"
-#include <stdarg.h>
 #include <stdbool.h>
 
 #pragma once
 #ifndef __amm_give
-#define __amm_give
+#define __amm_give 
 #endif
 #ifndef __amm_take
 #define __amm_take
@@ -27,7 +26,7 @@ typedef struct Shape Shape;
 struct Shape {
   int nrank;
   Axis** axes;
-  bool is_contiguous = TRUE;
+  bool is_contiguous;
 };
 
 typedef struct NDArray NDArray;
@@ -39,12 +38,17 @@ struct NDArray {
 /*
   Shaping
 */
-Shape* amm_make_column_major_shape(...);
-Shape* amm_make_row_major_shape(...);
+// Allocator
+__amm_give Shape* amm_make_strided_shape(int nrank, const int* shape, const int* stride);
+__amm_give Shape* amm_make_column_major_shape(int nrank, int* shape);
+__amm_give Shape* amm_make_row_major_shape(int nrank, int* shape);
+// Freer
+void amm_free_axis(Axis* axis);
+void amm_free_shape(__amm_take Shape* s);
 /*
   Allocation
 */
-__amm_give NDArray* amm_ndarray_alloc(Shape* shape, AMM_DType dtype);
+__amm_give NDArray* amm_ndarray_alloc(Shape* shape, void* storage, AMM_DType dtype);
 void amm_ndarray_free(__amm_take NDArray* arr);
 /*
   Accessors
