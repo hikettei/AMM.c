@@ -118,11 +118,11 @@ void amm_ndarray_free(__amm_take NDArray* arr) {
   }
 }
 // ~~~ Accessors ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-static inline int amm_ndarray_rank(__amm_keep const NDArray* arr) {
+int amm_ndarray_rank(__amm_keep const NDArray* arr) {
   return arr ? arr->shape->nrank : 0;
 }
 
-int amm_ndarray_size_of(__amm_keep NDArray* arr, int dim) {
+int amm_ndarray_size_of(__amm_keep const NDArray* arr, int dim) {
   if (!arr) return 0;
   amm_assert(arr->shape->nrank > 0, "Invalid shape for size_of");
   if (dim < 0) {
@@ -132,7 +132,7 @@ int amm_ndarray_size_of(__amm_keep NDArray* arr, int dim) {
   return arr->shape->axes[dim]->size;
 }
 
-int amm_ndarray_stride_of(__amm_keep NDArray* arr, int dim) {
+int amm_ndarray_stride_of(__amm_keep const NDArray* arr, int dim) {
   if (!arr) return 0;
   amm_assert(arr->shape->nrank > 0, "Invalid shape for stride_of");
   if (dim < 0) {
@@ -142,12 +142,21 @@ int amm_ndarray_stride_of(__amm_keep NDArray* arr, int dim) {
   return arr->shape->axes[dim]->stride;
 }
 
-bool amm_ndarray_is_contiguous(__amm_keep NDArray* arr) {
+bool amm_ndarray_is_contiguous(__amm_keep const NDArray* arr) {
   if (!arr) return false;
   return arr->shape->is_contiguous;
 }
+
+int amm_ndarray_total_size(__amm_keep const NDArray* arr) {
+  if (!arr) return 0;
+  int total_size = 1;
+  for (int i = 0; i < amm_ndarray_rank(arr); i++) {
+    total_size *= amm_ndarray_size_of(arr, i);
+  }
+  return total_size;
+}
 // ~~ Movements ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-__amm_keep NDArray* amm_ndarray_reshape(__amm_keep NDArray* arr, Shape* new_shape) {
+__amm_keep NDArray* amm_ndarray_reshape(__amm_take NDArray* arr, Shape* new_shape) {
   // Reshape gives a new shape and new stride without changing the stride
   if (!arr) return 0;
   amm_assert(amm_ndarray_is_contiguous(arr), "Reshape only works for contiguous arrays");
@@ -156,7 +165,7 @@ __amm_keep NDArray* amm_ndarray_reshape(__amm_keep NDArray* arr, Shape* new_shap
   return arr;
 }
 
-__amm_keep NDArray* amm_ndarray_permute(__amm_keep NDArray* arr,
+__amm_keep NDArray* amm_ndarray_permute(__amm_take NDArray* arr,
                                         const int* perm) {
   if (!arr) return NULL;
   int nrank = amm_ndarray_rank(arr);
@@ -176,3 +185,5 @@ __amm_keep NDArray* amm_ndarray_permute(__amm_keep NDArray* arr,
   free(old_axes);
   return arr;
 }
+// ~~ Apply ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
