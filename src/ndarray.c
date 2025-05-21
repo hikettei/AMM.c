@@ -137,4 +137,3 @@ int amm_ndarray_stride_of(__amm_keep NDArray* arr, int dim) {
   return arr->shape->axes[dim]->stride;
 }
 // ~~~ Memory Allocations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-int main() {} // tmp

@@ -18,8 +18,9 @@ set(AMM_C_SOURCES
     src/argsort.c
 #    src/original_maddness.c
     )
-add_executable(${AMM_C_TARGET} ${AMM_C_SOURCES})
+add_library(${AMM_C_TARGET} SHARED ${AMM_C_SOURCES})
 target_include_directories(${AMM_C_TARGET} PRIVATE ./include/kernels ./include)
+
 target_compile_options(${AMM_C_TARGET} PUBLIC -Wall -lm)
 if (APPLE)
   target_compile_options(${AMM_C_TARGET} PUBLIC -fblocks)
