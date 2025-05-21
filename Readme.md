@@ -36,6 +36,10 @@ $ cmake ..
 $ cmake --build .
 ```
 
+### Testing
+
+- Requirements: cunit
+
 ### TODO
 
 - [ ] Implement Maddness
