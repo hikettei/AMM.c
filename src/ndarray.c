@@ -380,16 +380,54 @@ __amm_keep NDArray* amm_ndarray_sin(__amm_take NDArray* arr) {
   return arr;
 }
 
-__amm_keep NDArray* amm_ndarray_add(__amm_take NDArray* out, __amm_keep NDArray* x) {
-  amm_ndarray_apply_binary(float, float, out[out_i] += x[x_i], out, x);
-  return out;
-}
+#define _DEFINE_ARITHMETIC_OP(name, op)                                 \
+  __amm_keep NDArray* amm_ndarray_##name(__amm_take NDArray* out, __amm_keep NDArray* x) { \
+    switch (out->dtype) {                                               \
+    case AMM_DTYPE_F32:                                                 \
+      amm_ndarray_apply_binary(float, float, out[out_i] op x[x_i], out, x); \
+      break;                                                            \
+    case AMM_DTYPE_F64:                                                 \
+      amm_ndarray_apply_binary(double, double, out[out_i] op x[x_i], out, x); \
+      break;                                                            \
+    case AMM_DTYPE_I8:                                                  \
+      amm_ndarray_apply_binary(int8_t, int8_t, out[out_i] op x[x_i], out, x); \
+      break;                                                            \
+    case AMM_DTYPE_I16:                                                 \
+      amm_ndarray_apply_binary(int16_t, int16_t, out[out_i] op x[x_i], out, x); \
+      break;                                                            \
+    case AMM_DTYPE_I32:                                                 \
+      amm_ndarray_apply_binary(int32_t, int32_t, out[out_i] op x[x_i], out, x); \
+      break;                                                            \
+    case AMM_DTYPE_I64:                                                 \
+      amm_ndarray_apply_binary(int64_t, int64_t, out[out_i] op x[x_i], out, x); \
+      break;                                                            \
+    case AMM_DTYPE_U8:                                                  \
+      amm_ndarray_apply_binary(uint8_t, uint8_t, out[out_i] op x[x_i], out, x); \
+      break;                                                            \
+    case AMM_DTYPE_U16:                                                 \
+      amm_ndarray_apply_binary(uint16_t, uint16_t, out[out_i] op x[x_i], out, x); \
+      break;                                                            \
+    case AMM_DTYPE_U32:                                                 \
+      amm_ndarray_apply_binary(uint32_t, uint32_t, out[out_i] op x[x_i], out, x); \
+      break;                                                            \
+    case AMM_DTYPE_U64:                                                 \
+      amm_ndarray_apply_binary(uint64_t, uint64_t, out[out_i] op x[x_i], out, x); \
+      break;                                                            \
+    default:                                                            \
+      fprintf(stderr, "amm_ndarray_" #name ": " #name " does not support %d\n", out->dtype); \
+      return NULL;                                                      \
+    }                                                                   \
+    return out;                                                         \
+  }                                                                     \
 
+_DEFINE_ARITHMETIC_OP(add, +=)
+_DEFINE_ARITHMETIC_OP(sub, -=)
+_DEFINE_ARITHMETIC_OP(mul, *=)
+_DEFINE_ARITHMETIC_OP(div, /=)
 __amm_keep NDArray* amm_ndarray_index_components(__amm_take NDArray* arr) {
   amm_ndarray_apply_unary(float, x[x_i] = x_i, arr);
   return arr;
 }
-
 // ~~ Printers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // recursive print helper
 static void print_rec(const NDArray* arr,

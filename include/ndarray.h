@@ -130,6 +130,9 @@ __amm_keep NDArray* amm_ndarray_sin(__amm_take NDArray* arr);
 __amm_keep NDArray* amm_ndarray_index_components(__amm_take NDArray* arr);
 
 __amm_keep NDArray* amm_ndarray_add(__amm_take NDArray* out, __amm_keep NDArray* x);
+__amm_keep NDArray* amm_ndarray_sub(__amm_take NDArray* out, __amm_keep NDArray* x);
+__amm_keep NDArray* amm_ndarray_mul(__amm_take NDArray* out, __amm_keep NDArray* x);
+__amm_keep NDArray* amm_ndarray_div(__amm_take NDArray* out, __amm_keep NDArray* x);
 // TODO:
 // - ndarray_cast
 // - ndarray_arange
@@ -143,5 +146,5 @@ __amm_keep NDArray* amm_ndarray_add(__amm_take NDArray* out, __amm_keep NDArray*
 // TODO: Create optimizer version which if the array is contiguous then converted to 1d op;
 // TODO: 再起的にIndexを計算
 // TODO: Contiguous Partを見つけたら，BLAS_LIKE Operationでvectorizeとかして計算
-
+// 
 void print_ndarray(__amm_keep NDArray* arr);
