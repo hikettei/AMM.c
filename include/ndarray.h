@@ -126,6 +126,34 @@ __amm_keep NDArray* _amm_ndarray_apply_ternary(__amm_take NDArray* out, __amm_ke
 #endif
 // ~~ Operations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 __amm_keep NDArray* amm_ndarray_sin(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_cos(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_tan(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_asin(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_acos(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_atan(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_sinh(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_cosh(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_tanh(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_asinh(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_acosh(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_atanh(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_exp(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_log(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_log10(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_log2(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_log1p(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_sqrt(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_rsqrt(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_cbrt(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_abs(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_neg(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_floor(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_ceil(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_round(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_trunc(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_sign(__amm_take NDArray* arr);
+// __amm_keep NDArray* amm_ndarray_clamp(__amm_take NDArray* arr, float min, float max);
+
 
 __amm_keep NDArray* amm_ndarray_index_components(__amm_take NDArray* arr);
 

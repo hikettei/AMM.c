@@ -365,20 +365,43 @@ __amm_keep NDArray* _amm_ndarray_apply_ternary(__amm_take NDArray* out, __amm_ke
   return out;
 }
 // ~~ Implementations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-__amm_keep NDArray* amm_ndarray_sin(__amm_take NDArray* arr) {
-  switch (arr->dtype) { // TODO: Make Switch Macro
-  case AMM_DTYPE_F32:
-    amm_ndarray_apply_f_unary(float, sinf, arr);
-    break;
-  case AMM_DTYPE_F64:
-    amm_ndarray_apply_f_unary(double, sin, arr);
-    break;
-  default:
-    fprintf(stderr, "amm_ndarray_sin: sin only supports for float and double, getting: %d\n", arr->dtype);
-    return NULL;
-  }
-  return arr;
-}
+#define _DEFINE_MATH_OP(name, op, dop)                                  \
+  __amm_keep NDArray* amm_ndarray_##name(__amm_take NDArray* arr) {     \
+    switch (arr->dtype)  {                                              \
+    case AMM_DTYPE_F32:                                                 \
+      amm_ndarray_apply_unary(float, x[x_i] = op(x[x_i]), arr);       \
+      break;                                                            \
+    case AMM_DTYPE_F64:                                                 \
+      amm_ndarray_apply_unary(double, x[x_i] = dop(x[x_i]), arr);     \
+      break;                                                            \
+    default:                                                            \
+      fprintf(stderr, "amm_ndarray_" #name ": " #name " does not support %d\n", arr->dtype); \
+      return NULL;                                                      \
+    }                                                                   \
+    return arr;                                                         \
+  }                                                                     \
+
+_DEFINE_MATH_OP(sin, sinf, sin)
+     _DEFINE_MATH_OP(cos, cosf, cos)
+     _DEFINE_MATH_OP(tan, tanf, tan)
+     _DEFINE_MATH_OP(asin, asinf, asin)
+     _DEFINE_MATH_OP(acos, acosf, acos)
+     _DEFINE_MATH_OP(atan, atanf, atan)
+     _DEFINE_MATH_OP(sinh, sinhf, sinh)
+     _DEFINE_MATH_OP(cosh, coshf, cosh)
+     _DEFINE_MATH_OP(tanh, tanhf, tanh)
+     _DEFINE_MATH_OP(asinh, asinhf, asinh)
+     _DEFINE_MATH_OP(acosh, acoshf, acosh)
+     _DEFINE_MATH_OP(atanh, atanhf, atanh)
+     _DEFINE_MATH_OP(exp, expf, exp)
+_DEFINE_MATH_OP(log, logf, log)
+_DEFINE_MATH_OP(log10, log10f, log10)
+_DEFINE_MATH_OP(log2, log2f, log2)
+_DEFINE_MATH_OP(log1p, log1pf, log1p)
+_DEFINE_MATH_OP(sqrt, sqrtf, sqrt)
+_DEFINE_MATH_OP(cbrt, cbrtf, cbrt)
+_DEFINE_MATH_OP(abs, fabsf, fabs)
+
 
 #define _DEFINE_ARITHMETIC_OP(name, op)                                 \
   __amm_keep NDArray* amm_ndarray_##name(__amm_take NDArray* out, __amm_keep NDArray* x) { \
@@ -420,10 +443,12 @@ __amm_keep NDArray* amm_ndarray_sin(__amm_take NDArray* arr) {
     return out;                                                         \
   }                                                                     \
 
+
 _DEFINE_ARITHMETIC_OP(add, +=)
 _DEFINE_ARITHMETIC_OP(sub, -=)
 _DEFINE_ARITHMETIC_OP(mul, *=)
 _DEFINE_ARITHMETIC_OP(div, /=)
+
 __amm_keep NDArray* amm_ndarray_index_components(__amm_take NDArray* arr) {
   amm_ndarray_apply_unary(float, x[x_i] = x_i, arr);
   return arr;
