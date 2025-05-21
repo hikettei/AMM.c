@@ -215,8 +215,14 @@ int any_has_random_access_p(int nrank, int nargs, NDArray** args) {
 // 2. Optimize the computation of index with regard to index_placeholder caching
 // 3. Ensure tests are passing.
 void _amm_step_simulated_loop(int current_rank, int nrank, const int* iteration_space, int nargs, NDArray** args,
-                              int** index_placeholder, int* offsets, int* offsets_tmp, int* increments
-                              ) {
+                              int** index_placeholder, int* offsets, int* offsets_tmp, int* increments,
+#if defined(AMM_C_GCC_MODE)
+                              void (*range_invoker)(int*, int*), void (*elwise_invoker)(int*)
+#elif defined(AMM_C_BLOCK_MODE)
+                              void (^range_invoker)(int*, int*), void (^elwise_invoker)(int*)
+#endif
+                              )
+{
   // Index_Placeholder[NTH_ARG, NTH_RANK] -> args[nth_arg][compute_memory_index(index_placeholder[nth_rank])]
   // Note: we keep index_placeholder because it will be replaced w/ each args' offsets in the future.
   amm_assert(0 <= nargs && nargs <= 3, "Apply only supports 1, 2, or 3 arguments");
@@ -244,12 +250,19 @@ void _amm_step_simulated_loop(int current_rank, int nrank, const int* iteration_
       for (int nth_arg=0; nth_arg<nargs; nth_arg++) index_placeholder[current_rank][nth_arg] = nth_element;
       // Here, the rank (i+1) loop is independent of the rank (i) loop so that we have no need to realloc the index_placeholder
       // Move forward
-      _amm_step_simulated_loop(current_rank + 1, nrank, iteration_space, nargs, args, index_placeholder, offsets, offsets_tmp, increments);
+      _amm_step_simulated_loop(current_rank + 1, nrank, iteration_space, nargs, args, index_placeholder, offsets, offsets_tmp, increments, range_invoker, elwise_invoker);
     }
   }
 }
 
-void _amm_ndarray_apply(int nargs, NDArray** args) {
+void _amm_ndarray_apply(int nargs, NDArray** args,
+#if defined(AMM_C_GCC_MODE)
+                        void (*range_invoker)(int*, int*), void (*elwise_invoker)(int*)),
+#elif defined(AMM_C_BLOCK_MODE)
+  void (^range_invoker)(int*, int*), void (^elwise_invoker)(int*)
+#endif
+  )
+{
   // Impl:
   // 1. Simplify all shape
   // 2. Select the tallest one
@@ -276,15 +289,16 @@ void _amm_ndarray_apply(int nargs, NDArray** args) {
   /*
     iteration_space: 仮想的なLoopSpace
     for 0..3
-       for 0..5
-         ..
+    for 0..5
+    ..
   */
   amm_assert(index_placeholder, "Failed to alloc index_placeholder");
   amm_assert(offsets, "Failed to alloc offsets");
   amm_assert(increments, "Failed to alloc increments");
   for (int i=0; i<nrank; i++) iteration_space[i] = args[0]->shape->axes[i]->size;
   // Start simulating the loop
-  _amm_step_simulated_loop(0, nrank, iteration_space, nargs, args, index_placeholder, offsets, offsets_tmp, increments);
+  _amm_step_simulated_loop(0, nrank, iteration_space, nargs, args, index_placeholder, offsets, offsets_tmp, increments,
+                           range_invoker, elwise_invoker);
   free(iteration_space);
   for (int i=0; i<nrank; i++) free(index_placeholder[i]);
   free(index_placeholder);
@@ -299,7 +313,7 @@ __amm_keep NDArray* _amm_ndarray_apply_unary(__amm_take NDArray* out, void (*ran
 __amm_keep NDArray* _amm_ndarray_apply_unary(__amm_take NDArray* out, void (^range_applier)(void*, int, int, int), void (^element_applier)(void*, int))
 #endif
 {
-  _amm_ndarray_apply(1, (NDArray*[]){out});
+  // _amm_ndarray_apply(1, (NDArray*[]){out});
   return out;
 }
 
@@ -309,7 +323,7 @@ __amm_keep NDArray* _amm_ndarray_apply_binary(__amm_take NDArray* out, __amm_kee
 __amm_keep NDArray* _amm_ndarray_apply_binary(__amm_take NDArray* out, __amm_keep NDArray* in, void (^range_applier)(void*, void*, int, int, int, int, int), void (^element_applier)(void*, int, int))
 #endif
 {
-  _amm_ndarray_apply(2, (NDArray*[]){in, out});
+  // _amm_ndarray_apply(2, (NDArray*[]){in, out});
   return out;
 }
 
@@ -319,7 +333,7 @@ __amm_keep NDArray* _amm_ndarray_apply_ternary(__amm_take NDArray* out, __amm_ke
 __amm_keep NDArray* _amm_ndarray_apply_ternary(__amm_take NDArray* out, __amm_keep NDArray* x, __amm_keep NDArray* y, void (^range_applier)(void*, void*, void*, int, int, int, int, int, int, int), void (^element_applier)(void*, int, int, int))
 #endif
 {
-  _amm_ndarray_apply(3, (NDArray*[]){out, x, y});
+  // _amm_ndarray_apply(3, (NDArray*[]){out, x, y});
   return out;
 }
 // ~~ Implementations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
