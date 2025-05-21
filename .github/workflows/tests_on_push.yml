@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v1
       - name: Build AMM.c
         run: |
-          make build
+          make test
   UnitTest_Mac:
     name: (${{ matrix.kernel }}) Unittest w/ macOS
     runs-on: ${{ matrix.os }}
@@ -33,9 +33,9 @@ jobs:
       - uses: actions/checkout@v1
       - name: (ARM64) Build AMM.c
         if: ${{ matrix.backend == 'arm64' }}
-        run: make build
+        run: make test
       - name: (Metal) Build AMM.c
         if: ${{ matrix.backend == 'arm64' }}
-        run: make build#_metal
+        run: make test
           
     
