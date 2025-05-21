@@ -1,5 +1,13 @@
 #include <assert.h>
-#define amm_assert(condition, message) assert(condition && message)
+#define amm_assert(condition, message, ...)     \
+  do {                                          \
+    if (!(condition)) {                         \
+      fprintf(stderr, message, ##__VA_ARGS__);  \
+      fprintf(stderr, " (");                    \
+      assert(condition);                        \
+      fprintf(stderr, ")\n");                   \
+    }                                           \
+  } while (0)
 
 #if defined(__GNUC__) && !defined(__clang__)
 #  define amm_lambda(ret_type, ...)             \

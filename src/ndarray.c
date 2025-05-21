@@ -41,11 +41,8 @@ __amm_give Shape* amm_make_strided_shape(int nrank, const int* shape, const int*
     ax->offset            = 0;
     ax->stride            = stride[i];
     ax->random_access_idx = NULL;
-    if (i > 0) {
-      Axis* prev = s->axes[i-1];
-      if (ax->stride != prev->stride * prev->size) s->is_contiguous = false;
-    }
     s->axes[i] = ax;
+    // TODO: Verify the contiguous of stride here?
   }
   return s;
 }
