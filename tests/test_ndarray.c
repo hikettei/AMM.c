@@ -43,6 +43,8 @@ void test_ndarray_arange_and_contiguous_elwise() {
   arr1 = amm_ndarray_add(arr1, arr2);
   print_ndarray(arr1);
   print_ndarray(arr2);
+  amm_ndarray_free(arr1);
+  amm_ndarray_free(arr2);
   printf("Passed: test_ndarray_arange_and_contiguous_elwise\n");
 }
 
