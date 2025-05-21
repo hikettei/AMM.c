@@ -88,7 +88,7 @@ __amm_keep NDArray* amm_ndarray_expand(__amm_take NDArray* arr, int* expand);
 #define amm_expand_applier_binary(dtype_out, dtype_in, op)              \
   amm_lambda(void, (void* out_, void* x_, int size, int out_offset, int inco, int x_offset, int incx) { \
       for (int n=0; n<size; n++) {                                      \
-        int out_i = out_offfset + n * inco;                             \
+        int out_i = out_offset + n * inco;                              \
         int x_i = x_offset + n * incx;                                  \
         dtype_out* out = (dtype_out*)out_;                              \
         dtype_in* x = (dtype_in*)x_;                                    \
@@ -97,8 +97,8 @@ __amm_keep NDArray* amm_ndarray_expand(__amm_take NDArray* arr, int* expand);
 #define amm_expand_applier_ternary(dtype_out, dtype_in1, dtype_in2, op) \
   amm_lambda(void, (void* out_, void* x_, void* y), int size, int out_offset, int inco, int x_offset, int incx, int y_offset, int incy) { \
     for (int n=0; n<size; n++) {                                        \
-      int out_i = out_offfset + n * inco;                               \
-      int x_i = x_offset + n * incx;                                    \
+      int out_i = out_offset + n * inco;                                \
+      int x_i = x_offset  n * incx;                                     \
       int y_i = y_offset + n * incy;                                    \
       dtype_out* out = (dtype_out*)out_;                                \
       dtype_in1* x = (dtype_in1*)x_;                                    \
@@ -128,6 +128,8 @@ __amm_keep NDArray* _amm_ndarray_apply_ternary(__amm_take NDArray* out, __amm_ke
 __amm_keep NDArray* amm_ndarray_sin(__amm_take NDArray* arr);
 
 __amm_keep NDArray* amm_ndarray_index_components(__amm_take NDArray* arr);
+
+__amm_keep NDArray* amm_ndarray_add(__amm_take NDArray* out, __amm_keep NDArray* x);
 // TODO:
 // - ndarray_cast
 // - ndarray_arange

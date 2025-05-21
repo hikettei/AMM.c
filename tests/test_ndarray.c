@@ -36,9 +36,14 @@ void test_ndarray_creation() {
 }
 
 void test_ndarray_arange_and_contiguous_elwise() {
-  NDArray* arr = amm_ndarray_zeros(amm_make_row_major_shape(2, (int[]){10, 10}), AMM_DTYPE_F32);
-  arr = amm_ndarray_index_components(arr);
-  print_ndarray(arr);
+  NDArray* arr1 = amm_ndarray_zeros(amm_make_row_major_shape(2, (int[]){10, 10}), AMM_DTYPE_F32);
+  NDArray* arr2 = amm_ndarray_zeros(amm_make_row_major_shape(2, (int[]){10, 10}), AMM_DTYPE_F32);
+  arr1 = amm_ndarray_index_components(arr1);
+  arr2 = amm_ndarray_index_components(arr2);
+  arr1 = amm_ndarray_add(arr1, arr2);
+  print_ndarray(arr1);
+  print_ndarray(arr2);
+  printf("Passed: test_ndarray_arange_and_contiguous_elwise\n");
 }
 
 int main(void) {

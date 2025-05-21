@@ -348,8 +348,8 @@ __amm_keep NDArray* _amm_ndarray_apply_binary(__amm_take NDArray* out, __amm_kee
 #endif
 {
   _amm_ndarray_apply(2, (NDArray*[]){out, in},
-                     amm_lambda(void, (int size, int* offsets, int* increments) { range_applier(out->storage, in, size, offsets[0], increments[0], offsets[1], increments[1]); },
-                                amm_lambda(void, (int* indices) { element_applier(out->storage, in, indices[0], indices[1]); })));
+                     amm_lambda(void, (int size, int* offsets, int* increments) { range_applier(out->storage, in->storage, size, offsets[0], increments[0], offsets[1], increments[1]); },
+                                amm_lambda(void, (int* indices) { element_applier(out->storage, in->storage, indices[0], indices[1]); })));
   return out;
 }
 
@@ -360,8 +360,8 @@ __amm_keep NDArray* _amm_ndarray_apply_ternary(__amm_take NDArray* out, __amm_ke
 #endif
 {
   _amm_ndarray_apply(3, (NDArray*[]){out, x, y},
-                     amm_lambda(void, (int size, int* offsets, int* increments) { range_applier(out->storage, x, y, size, offsets[0], increments[0], offsets[1], increments[1], offsets[2], increments[2]); },
-                                amm_lambda(void, (int* indices) { element_applier(out->storage, x, y, indices[0], indices[1], indices[2]); })));
+                     amm_lambda(void, (int size, int* offsets, int* increments) { range_applier(out->storage, x->storage, y->storage, size, offsets[0], increments[0], offsets[1], increments[1], offsets[2], increments[2]); },
+                                amm_lambda(void, (int* indices) { element_applier(out->storage, x->storage, y->storage, indices[0], indices[1], indices[2]); })));
   return out;
 }
 // ~~ Implementations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -378,6 +378,11 @@ __amm_keep NDArray* amm_ndarray_sin(__amm_take NDArray* arr) {
     return NULL;
   }
   return arr;
+}
+
+__amm_keep NDArray* amm_ndarray_add(__amm_take NDArray* out, __amm_keep NDArray* x) {
+  amm_ndarray_apply_binary(float, float, out[out_i] += x[x_i], out, x);
+  return out;
 }
 
 __amm_keep NDArray* amm_ndarray_index_components(__amm_take NDArray* arr) {
