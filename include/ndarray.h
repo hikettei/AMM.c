@@ -22,7 +22,7 @@
 typedef struct Axis Axis;
 struct Axis {
   int size;
-  int offset;
+  int offset; // TODO: Introduce [3:5] (i.e.: real_size and X[-1:-3]) reversing.
   int stride;
   void* random_access_idx; // If random_access_idx was set to int* pointer, ndarray will read the corresponding index by random_access_idx[0], ... random_access_idx[size-1]
 };
@@ -33,6 +33,7 @@ typedef struct Shape Shape;
 struct Shape {
   int nrank;
   Axis** axes;
+  // int offset; TODO: Introduce extra offset.
   bool is_contiguous;
 };
 
@@ -123,7 +124,6 @@ __amm_keep NDArray* _amm_ndarray_apply_unary(__amm_take NDArray* out, void (^ran
 __amm_keep NDArray* _amm_ndarray_apply_binary(__amm_take NDArray* out, __amm_keep NDArray* in, void (^range_applier)(void*, void*, int, int, int, int, int), void (^element_applier)(void*, int, int));
 __amm_keep NDArray* _amm_ndarray_apply_ternary(__amm_take NDArray* out, __amm_keep NDArray* x, __amm_keep NDArray* y, void (^range_applier)(void*, void*, void*, int, int, int, int, int, int, int), void (^element_applier)(void*, int, int, int));
 #endif
-
 // ~~ Operations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 __amm_keep NDArray* amm_ndarray_sin(__amm_take NDArray* arr);
 // Cast is binary?
