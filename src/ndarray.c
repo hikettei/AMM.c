@@ -402,16 +402,16 @@ static void print_rec(const NDArray* arr,
     }
     // print element based on dtype size
     switch (elem_type) {
-    case AMM_DTYPE_F32: printf("%f", *((float*)arr->storage)+offset); break;
-    case AMM_DTYPE_F64: printf("%f", *((double*)arr->storage)+offset); break;
-    case AMM_DTYPE_I8: printf("%zu", *((int8_t*)arr->storage)+offset); break;
-    case AMM_DTYPE_I16: printf("%zu", *((int16_t*)arr->storage)+offset); break;
-    case AMM_DTYPE_I32: printf("%zu", *((int32_t*)arr->storage)+offset); break;
-    case AMM_DTYPE_I64: printf("%llu", *((int64_t*)arr->storage)+offset); break;
-    case AMM_DTYPE_U8: printf("%zu", *((uint8_t*)arr->storage)+offset); break;
-    case AMM_DTYPE_U16: printf("%zu", *((uint16_t*)arr->storage)+offset); break;
-    case AMM_DTYPE_U32: printf("%zu", *((uint32_t*)arr->storage)+offset); break;
-    case AMM_DTYPE_U64: printf("%llu", *((uint64_t*)arr->storage)+offset); break;
+    case AMM_DTYPE_F32: printf("%f", *((float*)arr->storage+offset)); break;
+    case AMM_DTYPE_F64: printf("%f", *((double*)arr->storage+offset)); break;
+    case AMM_DTYPE_I8: printf("%hhd", *((int8_t*)arr->storage+offset)); break;
+    case AMM_DTYPE_I16: printf("%hd", *((int16_t*)arr->storage+offset)); break;
+    case AMM_DTYPE_I32: printf("%d", *((int32_t*)arr->storage+offset)); break;
+    case AMM_DTYPE_I64: printf("%llu", *((int64_t*)arr->storage+offset)); break;
+    case AMM_DTYPE_U8: printf("%hhu", *((uint8_t*)arr->storage+offset)); break;
+    case AMM_DTYPE_U16: printf("%hu", *((uint16_t*)arr->storage+offset)); break;
+    case AMM_DTYPE_U32: printf("%u", *((uint32_t*)arr->storage+offset)); break;
+    case AMM_DTYPE_U64: printf("%llu", *((uint64_t*)arr->storage+offset)); break;
     default: printf("?");
     }
     return;
