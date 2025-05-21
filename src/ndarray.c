@@ -217,9 +217,9 @@ int any_has_random_access_p(int nrank, int nargs, NDArray** args) {
 void _amm_step_simulated_loop(int current_rank, int nrank, const int* iteration_space, int nargs, NDArray** args,
                               int** index_placeholder, int* offsets, int* offsets_tmp, int* increments,
 #if defined(AMM_C_GCC_MODE)
-                              void (*range_invoker)(int*, int*), void (*elwise_invoker)(int*)
+                              void (*range_invoker)(int, int*, int*), void (*elwise_invoker)(int*)
 #elif defined(AMM_C_BLOCK_MODE)
-                              void (^range_invoker)(int*, int*), void (^elwise_invoker)(int*)
+                              void (^range_invoker)(int, int*, int*), void (^elwise_invoker)(int*)
 #endif
                               )
 {
@@ -257,9 +257,9 @@ void _amm_step_simulated_loop(int current_rank, int nrank, const int* iteration_
 
 void _amm_ndarray_apply(int nargs, NDArray** args,
 #if defined(AMM_C_GCC_MODE)
-                        void (*range_invoker)(int*, int*), void (*elwise_invoker)(int*)),
+                        void (*range_invoker)(int, int*, int*), void (*elwise_invoker)(int*)),
 #elif defined(AMM_C_BLOCK_MODE)
-  void (^range_invoker)(int*, int*), void (^elwise_invoker)(int*)
+  void (^range_invoker)(int, int*, int*), void (^elwise_invoker)(int*)
 #endif
   )
 {
@@ -313,27 +313,33 @@ __amm_keep NDArray* _amm_ndarray_apply_unary(__amm_take NDArray* out, void (*ran
 __amm_keep NDArray* _amm_ndarray_apply_unary(__amm_take NDArray* out, void (^range_applier)(void*, int, int, int), void (^element_applier)(void*, int))
 #endif
 {
-  // _amm_ndarray_apply(1, (NDArray*[]){out});
+  _amm_ndarray_apply(1, (NDArray*[]){out},
+                     amm_lambda(void, (int size, int* offsets, int* increments) { range_applier(out, size, offsets[0], increments[0]); },
+                                amm_lambda(void, (int* indices) { element_applier(out, indices[0]); })));
   return out;
 }
 
 #if defined(AMM_C_GCC_MODE)
-__amm_keep NDArray* _amm_ndarray_apply_binary(__amm_take NDArray* out, __amm_keep NDArray* in, void (*range_applier)(void*, void*, int, int, int, int, int), void (*element_applier)(void*, int, int))
+__amm_keep NDArray* _amm_ndarray_apply_binary(__amm_take NDArray* out, __amm_keep NDArray* in, void (*range_applier)(void*, void*, int, int, int, int, int), void (*element_applier)(void*, void*, int, int))
 #elif defined(AMM_C_BLOCK_MODE)
-__amm_keep NDArray* _amm_ndarray_apply_binary(__amm_take NDArray* out, __amm_keep NDArray* in, void (^range_applier)(void*, void*, int, int, int, int, int), void (^element_applier)(void*, int, int))
+  __amm_keep NDArray* _amm_ndarray_apply_binary(__amm_take NDArray* out, __amm_keep NDArray* in, void (^range_applier)(void*, void*, int, int, int, int, int), void (^element_applier)(void*, void*, int, int))
 #endif
 {
-  // _amm_ndarray_apply(2, (NDArray*[]){in, out});
+  _amm_ndarray_apply(2, (NDArray*[]){out, in},
+                     amm_lambda(void, (int size, int* offsets, int* increments) { range_applier(out, in, size, offsets[0], increments[0], offsets[1], increments[1]); },
+                                amm_lambda(void, (int* indices) { element_applier(out, in, indices[0], indices[1]); })));
   return out;
 }
 
 #if defined(AMM_C_GCC_MODE)
-__amm_keep NDArray* _amm_ndarray_apply_ternary(__amm_take NDArray* out, __amm_keep NDArray* x, __amm_keep NDArray* y, void (*range_applier)(void*, void*, void*, int, int, int, int, int, int, int), void (*element_applier)(void*, int, int, int))
+__amm_keep NDArray* _amm_ndarray_apply_ternary(__amm_take NDArray* out, __amm_keep NDArray* x, __amm_keep NDArray* y, void (*range_applier)(void*, void*, void*, int, int, int, int, int, int, int), void (*element_applier)(void*, void*, void*, int, int, int))
 #elif defined(AMM_C_BLOCK_MODE)
-__amm_keep NDArray* _amm_ndarray_apply_ternary(__amm_take NDArray* out, __amm_keep NDArray* x, __amm_keep NDArray* y, void (^range_applier)(void*, void*, void*, int, int, int, int, int, int, int), void (^element_applier)(void*, int, int, int))
+  __amm_keep NDArray* _amm_ndarray_apply_ternary(__amm_take NDArray* out, __amm_keep NDArray* x, __amm_keep NDArray* y, void (^range_applier)(void*, void*, void*, int, int, int, int, int, int, int), void (^element_applier)(void*, void*, void*, int, int, int))
 #endif
 {
-  // _amm_ndarray_apply(3, (NDArray*[]){out, x, y});
+  _amm_ndarray_apply(3, (NDArray*[]){out, x, y},
+                     amm_lambda(void, (int size, int* offsets, int* increments) { range_applier(out, x, y, size, offsets[0], increments[0], offsets[1], increments[1], offsets[2], increments[2]); },
+                                amm_lambda(void, (int* indices) { element_applier(out, x, y, indices[0], indices[1], indices[2]); })));
   return out;
 }
 // ~~ Implementations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
