@@ -256,11 +256,16 @@ int optimal_val_splits(NDArray* A_offline, Bucket* bucket, NDArray* total_losses
   }
 }
 
+void learn_quantized_params(Bucket* bucket, NDArray* A_offline, int best_dim) {
+  // Appendix B
+  // TODO:
+}
+
 void optimize_split_thresholds(Bucket* bucket, int min_idx, int best_dim, int nth_split, NDArray* A_offline) {
   if (bucket->tree_level == nth_split) {
     bucket->index = best_dim;
     bucket->threshold = ((float*)bucket->threshold_candidates)[min_idx];
-    // TODO: LEARN QUANTIZED PARAMS
+    learn_quantized_params(bucket, A_offline, best_dim);
   }
 
   Bucket* left = bucket->left_child;
