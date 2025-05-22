@@ -67,7 +67,7 @@ void test_ndarray_permute() {
   NDArray* arr2 = amm_ndarray_zeros(amm_make_row_major_shape(2, (int[]){10, 10}), AMM_DTYPE_F32);
   arr1 = amm_ndarray_index_components(arr1);
   arr2 = amm_ndarray_index_components(arr2);
-  arr1 = amm_ndarray_permute(arr1, (int[]){1, 0});
+  arr1 = amm_ndarray_permute(arr1, 1, 0);
   print_ndarray(arr1);
   print_ndarray(arr2);
   for (int i=0; i<10; i++)

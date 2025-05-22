@@ -206,8 +206,20 @@ __amm_keep NDArray* amm_ndarray_reshape(__amm_take NDArray* arr, Shape* new_shap
   return arr;
 }
 
-__amm_keep NDArray* amm_ndarray_permute(__amm_take NDArray* arr,
-                                        const int* perm) {
+__amm_keep NDArray* amm_ndarray_permute(__amm_take NDArray* arr, ...) {
+  va_list args;
+  va_start(args, arr);
+  int* perm = malloc(sizeof(int) * arr->shape->nrank);
+  if (!perm) {
+    fprintf(stderr, "amm_ndarray_permute: failed to alloc perm\n");
+    return NULL;
+  }
+  for (int i = 0; i < arr->shape->nrank; ++i) {
+    perm[i] = va_arg(args, int);
+    amm_assert(perm[i] >= 0 && perm[i] < arr->shape->nrank, "amm_ndarray_permute: invalid perm[%d]=%d", i, perm[i]);
+  }
+  va_end(args);
+  // TODO: Check if the permutation is valid
   if (!arr) return NULL;
   int nrank = amm_ndarray_rank(arr);
   Axis** old_axes = arr->shape->axes;
@@ -224,6 +236,7 @@ __amm_keep NDArray* amm_ndarray_permute(__amm_take NDArray* arr,
   // replace axes array and free old
   arr->shape->axes = new_axes;
   free(old_axes);
+  free(perm);
   return arr;
 }
 // ~~ Shape Solver ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -77,7 +77,7 @@ __amm_give NDArray* amm_ndarray_randn(Shape* shape, AMM_DType dtype);
 // ~~~ Movements ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // TODO: The only operation here is apply_map, (this can implement even matmul, im2col, which is enough for our goal)
 __amm_keep NDArray* amm_ndarray_reshape(__amm_take NDArray* arr, Shape* new_shape);
-__amm_keep NDArray* amm_ndarray_permute(__amm_take NDArray* arr, const int* perm);
+__amm_keep NDArray* amm_ndarray_permute(__amm_take NDArray* arr, ...);
 __amm_keep NDArray* amm_ndarray_view(__amm_take NDArray* arr, int* shape);
 __amm_keep NDArray* amm_ndarray_expand(__amm_take NDArray* arr, int* expand);
 // ~~~ Apply ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
