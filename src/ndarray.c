@@ -14,9 +14,12 @@
 int amm_axis_compute_index_on_memory(Axis* axis, int position) {
   if (axis->random_access_idx == NULL) {
     // Strided Access
-    return (axis->offset + position) * axis->stride;
+    return (axis->offset + position * axis->by) * axis->stride;
   } else {
     // Random Access
+#if defined(AMM_C_SAFE_MODE)
+    amm_assert(axis->by == 1, "amm_axis_compute_index_on_memory: random_access_idx is not supported with by != 1");
+#endif    
     return ((int*)axis->random_access_idx)[position] * axis->stride;
   }
 }
@@ -63,6 +66,7 @@ __amm_give Shape* amm_make_strided_shape(int nrank, const int* shape, const int*
     ax->size              = shape[i];
     ax->offset            = 0;
     ax->stride            = stride[i];
+    ax->by                = 1;
     ax->random_access_idx = NULL;
     s->axes[i] = ax;
     // TODO: Verify the contiguous of stride here?
@@ -281,6 +285,20 @@ __amm_keep NDArray* amm_ndarray_expand(__amm_take NDArray* arr, const int* expan
     arr->shape->axes[i]->size = expand_to;
     arr->shape->axes[i]->stride = 0;
   }
+  return arr;
+}
+
+__amm_keep NDArray* amm_ndarray_slice(__amm_take NDArray* arr, int rank, int from, int to, int by) {
+  amm_assert(rank >= 0 && rank < amm_ndarray_rank(arr), "amm_ndarray_slice: invalid rank %d", rank);
+  if (by > 0) amm_assert(from < to, "amm_ndarray_slice: invalid range %d:%d", from, to);
+  else amm_assert(from > to, "amm_ndarray_slice: invalid range %d:%d", from, to);
+
+  Axis* axis = arr->shape->axes[rank];
+  amm_assert(axis->random_access_idx == NULL, "amm_ndarray_slice: random_access(random_access(x)) view merge is not implemented yet.");
+  
+  axis->size = (to - from) / by;
+  axis->by = by;
+  axis->offset = from;
   return arr;
 }
 // ~~ Shape Solver ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

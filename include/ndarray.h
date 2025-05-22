@@ -24,6 +24,7 @@ typedef struct Axis Axis;
 struct Axis {
   int size;
   int offset; // TODO: Introduce [3:5] (i.e.: real_size and X[-1:-3]) reversing.
+  int by;
   int stride;
   void* random_access_idx; // If random_access_idx was set to int* pointer, ndarray will read the corresponding index by random_access_idx[0], ... random_access_idx[size-1]
 };
@@ -80,7 +81,7 @@ __amm_keep NDArray* amm_ndarray_reshape(__amm_take NDArray* arr, Shape* new_shap
 __amm_keep NDArray* amm_ndarray_permute(__amm_take NDArray* arr, ...);
 __amm_keep NDArray* amm_ndarray_expand(__amm_take NDArray* arr, const int* expand);
 __amm_keep NDArray* amm_ndarray_view_index(__amm_take NDArray* arr, int rank, int new_size, const int* indices);
-__amm_keep NDArray* amm_ndarray_view(__amm_take NDArray* arr, int* shape);
+__amm_keep NDArray* amm_ndarray_slice(__amm_take NDArray* arr, int rank, int from, int to, int by);
 // ~~~ Apply ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // TODO: Add Optimization using OpenMP depending on the hardware
 #define amm_expand_applier_unary(dtype, op)                             \

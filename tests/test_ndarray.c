@@ -104,6 +104,39 @@ void test_ndarray_indexing_view() {
     for (int j=0; j<3; j++)
       amm_assert(amm_ndarray_aref(float, arr1, i, j) == valid_shape[i] * 10 + valid_shape[j], "Invalid value at (%d, %d)", i, j);
   amm_ndarray_free(arr1);
+  printf("Passed: test_ndarray_indexing_view\n");
+}
+
+void test_ndarray_slice_1() {
+  // Case1: offset=0, but size was changed w/ all dims.
+  NDArray* arr = amm_ndarray_zeros(amm_make_row_major_shape(3, (int[]){5, 5, 5}), AMM_DTYPE_F32);
+  arr = amm_ndarray_index_components(arr);
+  print_ndarray(arr);
+  
+  amm_ndarray_slice(arr, 0, 0, 2, 1);
+  amm_assert(amm_ndarray_size_of(arr, 0) == 2 && amm_ndarray_size_of(arr, 1) == 5 && amm_ndarray_size_of(arr, 2) == 5, "Invalid size for arr");
+  for (int i=0; i<2; i++)
+    for (int j=0; j<5; j++)
+      for (int k=0; k<5; k++)
+        amm_assert(amm_ndarray_aref(float, arr, i, j, k) == i * 5 * 5 + j * 5 + k, "Invalid value at (%d, %d, %d)", i, j, k);
+  
+  amm_ndarray_slice(arr, 1, 0, 2, 1);
+  amm_assert(amm_ndarray_size_of(arr, 0) == 2 && amm_ndarray_size_of(arr, 1) == 2 && amm_ndarray_size_of(arr, 2) == 5, "Invalid size for arr");
+  for (int i=0; i<2; i++)
+    for (int j=0; j<2; j++)
+      for (int k=0; k<5; k++)
+        amm_assert(amm_ndarray_aref(float, arr, i, j, k) == i * 5 * 5 + j * 5 + k, "Invalid value at (%d, %d, %d)", i, j, k);
+  
+  amm_ndarray_slice(arr, 2, 0, 2, 1);
+  amm_assert(amm_ndarray_size_of(arr, 0) == 2 && amm_ndarray_size_of(arr, 1) == 2 && amm_ndarray_size_of(arr, 2) == 2, "Invalid size for arr");
+  for (int i=0; i<2; i++)
+    for (int j=0; j<2; j++)
+      for (int k=0; k<2; k++)
+        amm_assert(amm_ndarray_aref(float, arr, i, j, k) == i * 5 * 5 + j * 5 + k, "Invalid value at (%d, %d, %d)", i, j, k);
+  
+  print_ndarray(arr);
+  amm_ndarray_free(arr);
+  printf("Passed: test_ndarray_slice\n");
 }
 
 int main(void) {
@@ -113,4 +146,5 @@ int main(void) {
   test_ndarray_permute();
   test_ndarray_expand();
   test_ndarray_indexing_view();
+  test_ndarray_slice_1();
 }
