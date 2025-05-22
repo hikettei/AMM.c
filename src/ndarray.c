@@ -319,7 +319,7 @@ __amm_keep NDArray* amm_ndarray_slice(__amm_take NDArray* arr, int rank, int fro
   if (by < 0) { int tmp=to; to=from; from=tmp; by=-by; }
   if (from > to) by = -by;
   
-  if (by > 0) amm_assert(from < to, "amm_ndarray_slice: invalid range %d:%d", from, to);
+  if (by > 0) amm_assert(from <= to, "amm_ndarray_slice: invalid range %d:%d", from, to);
   else amm_assert(from > to, "amm_ndarray_slice: invalid range %d:%d", from, to);
   
   Axis* axis = arr->shape->axes[rank];
