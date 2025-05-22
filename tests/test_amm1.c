@@ -25,8 +25,11 @@ int main() {
   int a_rows = 1024;
   // We are going to approximate A[N M] @ B[M K]
   NDArray *A_offline = randn(a_rows, mgemm->N);
+  A_offline = amm_ndarray_index_components(A_offline);
   NDArray *A         = randn(mgemm->N, mgemm->M);
   NDArray *B         = randn(mgemm->M, mgemm->K);
+  print_ndarray(A_offline);
+
   // 1. SET_A_OFFLINE
   amm_om_setAoffline(mgemm, A_offline);
 

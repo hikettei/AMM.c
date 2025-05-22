@@ -104,6 +104,7 @@ void init_and_learn_offline(OriginalMaddnessGemm* gemm, NDArray* A_offline) {
 N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
   ++++++       +--,   -+-  ... * (N/D), Binary-Tree-Split is applied into each visible area.
   */
+  amm_assert(amm_ndarray_rank(A_offline) == 2, "init_and_learn_offline_fp32: A_offline must be 2d ndarray");
   amm_assert((gemm->M % gemm->C) == 0, "init_and_learn_offline_fp32: M should be divisible by C");
   int steps = gemm->M / gemm->C;
   // Allocation
@@ -116,6 +117,8 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
 #endif
   for (int col_i=0, nth=0; col_i<gemm->M; col_i+=steps, nth++) {
     printf("col_i: %d, nth: %d\n", col_i, nth);
+    amm_ndarray_slice(A_offline, 1, col_i, col_i+steps, 1);
+    print_ndarray(A_offline);
     // learn_binary_tree_splits(A_offline, col_i, steps, gemm->nsplits);
   }
   // NDArray作る。
@@ -129,7 +132,6 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
 
 void learn_proto_and_hash_function(OriginalMaddnessGemm* gemm, NDArray* A_offline) {
   init_and_learn_offline(gemm, A_offline); // gemm.buckets = new_bucket; gemm.protos = new_proto;
-  
 }
 // 1. Prototype Learning
 void amm_om_setAoffline(OriginalMaddnessGemm* gemm, NDArray* A_offline) {
