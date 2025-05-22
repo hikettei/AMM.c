@@ -48,7 +48,22 @@ void test_ndarray_arange_and_contiguous_elwise() {
   printf("Passed: test_ndarray_arange_and_contiguous_elwise\n");
 }
 
+void test_ndarray_reshape() {
+  NDArray* arr1 = amm_ndarray_zeros(amm_make_row_major_shape(2, (int[]){10, 10}), AMM_DTYPE_F32);
+  NDArray* arr2 = amm_ndarray_reshape(arr1, amm_make_row_major_shape(3, (int[]){1, 1, 100}));
+  print_ndarray(arr1);
+  print_ndarray(arr2);
+  int valid_shape[3] = {1, 1, 100};
+  int valid_stride[3] = {100, 100, 1};
+  for (int i = 0; i < 3; i++) {
+    amm_assert(amm_ndarray_size_of(arr2, i) == valid_shape[i], "Invalid size for arr2");
+    amm_assert(amm_ndarray_stride_of(arr2, i) == valid_stride[i], "Invalid stride for arr2");
+  }
+  printf("Passed: test_ndarray_reshape\n");
+}
+
 int main(void) {
   test_ndarray_creation();
   test_ndarray_arange_and_contiguous_elwise();
+  test_ndarray_reshape();
 }
