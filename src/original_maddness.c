@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <float.h>
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
@@ -269,9 +270,15 @@ B(3, 1)  B(3, 2)   B(3, 3)  B(3, 4)    | nth=2
     for (int d=0; d<steps; d++)
       for (int lv=0; lv<=nth_split; lv++)
         if (optimal_val_splits(A_offline, bucket, total_losses, d, ((int*)col_losses_i->storage)[d], lv) != 0) break;
-    // argsort col losses
+
+    float min_tmp = FLT_MIN;
+    int min_idx;
+    for (int i=0; i<steps; i++) min_tmp = MIN(min_tmp, ((float*)total_losses->storage)[i]);
+    for (int i=0; i<steps; i++) if (((float*)total_losses->storage)[i] == min_tmp) min_idx = i;
+    int best_dim = ((int*)col_losses_i->storage)[min_idx];
+
   }
-  amm_ndarray_free(col_losses_i) ;amm_ndarray_free(total_losses);
+  amm_ndarray_free(col_losses_i); amm_ndarray_free(total_losses);
 }
 
 // Protoype Learning
