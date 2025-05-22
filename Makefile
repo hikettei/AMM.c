@@ -14,7 +14,7 @@ build: ## Build AMM.c
 build_test: ## Build AMM.c with unittests
 	@echo "Building AMM.c with tests..."
 	@mkdir -p build
-	@cmake -S . -B ./build -DCMAKE_C_COMPILER=$(CC) -DAMM_C_BUILD_TESTS=ON -G Ninja && cd build && ninja
+	@cmake -S . -B ./build -DCMAKE_C_COMPILER=$(CC) -DAMM_C_SAFE_MODE=ON -DAMM_C_BUILD_TESTS=ON -G Ninja && cd build && ninja
 
 test_ndarray: build_test ## Run ndarray unittests
 	@./build/amm_test_ndarray
