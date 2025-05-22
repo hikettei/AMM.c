@@ -100,6 +100,20 @@ void sumup_col_sum_sqs(NDArray* col_losses, Bucket* bucket, NDArray* A_offline) 
   }
 }
 
+int optimal_val_splits(NDArray* A_offline, Bucket* bucket, NDArray* total_losses, int d, int dim, int tree_level) {
+  if (bucket->tree_level == tree_level) {
+
+  } else {
+    Bucket* left = bucket->left_child;
+    Bucket* right = bucket->right_child;
+    amm_assert(left != NULL && right != NULL, "optimal_val_splits: could not find any buckets?...");
+    int res1 = optimal_val_splits(A_offline, left, total_losses, d, dim, tree_level);
+    int res2 = optimal_val_splits(A_offline, right, total_losses, d, dim, tree_level);
+    int res3 = optimal_val_splits(A_offline, bucket, total_losses, d, dim, bucket->tree_level); // Compute current-level node.
+    return res1 || res2 || res3;
+  }
+}
+
 void learn_binary_tree_splits(NDArray* A_offline, NDArray* col_losses, int col_i, int steps, int nsplits) {
   /*
     
@@ -116,11 +130,21 @@ B(3, 1)  B(3, 2)   B(3, 3)  B(3, 4)    | nth=2
   // B(1, 1) is the origin of all buckets
   amm_assert(amm_ndarray_size_of(A_offline, 1) == steps, "invaild size of A_offline");
   Bucket* bucket = amm_bucket_alloc_toplevel(amm_ndarray_size_of(A_offline, 0)); // Start with one big buckets covering all rows
+  NDArray* col_losses_i = amm_ndarray_zeros(amm_make_shape(1, (int[]){steps}), AMM_DTYPE_I32);
+  NDArray* total_losses = amm_ndarray_zeros(amm_make_shape(2, (int[]){1, steps}), AMM_DTYPE_F32);
   for (int nth_split=0; nth_split < nsplits; nth_split++) {
     amm_ndarray_apply_unary(float, x[x_i] = 0.0f, col_losses); // TODO: Implement amm_ndarray_fill
     sumup_col_sum_sqs(col_losses, bucket, A_offline);
+    argsort((float*)col_losses->storage, steps, (int*)col_losses_i->storage); // col_losses_i <- argosrt(col_losses)
+    amm_ndarray_apply_unary(float, x[x_i] = 0.0f, total_losses); // TODO: Implement amm_ndarray_fill
+    // Optimize splits based on col_losses
+    for (int d=0; d<steps; d++)
+      for (int lv=0; lv<=nth_split; lv++)
+        if (optimal_val_splits(A_offline, bucket, total_losses, d, ((int*)col_losses_i->storage)[d], lv) != 0) break;
+    
     // argsort col losses
   }
+  amm_ndarray_free(col_losses_i) ;amm_ndarray_free(total_losses);
 }
 
 // Protoype Learning
