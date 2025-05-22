@@ -23,7 +23,7 @@
   __extension__                                 \
   ({                                            \
     ret_type __fn__ __VA_ARGS__                 \
-      __fn__;                                   \
+      __fn__                                    \
   })
 typedef void (*amm_noarg_callback)(void);
 #elif defined(AMM_C_BLOCK_MODE)
