@@ -221,7 +221,6 @@ void compute_optimal_val_splits(float* threshold, float* loss, NDArray* A_offlin
   threshold[0] = (val1 + val2) / 2;
   loss[0] = amm_ndarray_aref(float, s_out, best_idx);
 
-  /*
   amm_ndarray_free(x_head); amm_ndarray_free(x_tail);
   amm_ndarray_free(a_offline_r3);
   amm_ndarray_free(a_offline_r2);
@@ -229,7 +228,6 @@ void compute_optimal_val_splits(float* threshold, float* loss, NDArray* A_offlin
   amm_ndarray_free(s_out);
   amm_ndarray_free(x_sort_indices);
   amm_ndarray_free(x_sort_indices_rev);
-  */
 }
 
 int optimal_val_splits(NDArray* A_offline, Bucket* bucket, NDArray* total_losses, int d, int dim, int tree_level) {
@@ -373,7 +371,6 @@ B(3, 1)  B(3, 2)   B(3, 3)  B(3, 4)    | nth=2
     for (int d=0; d<steps; d++)
       for (int lv=0; lv<=nth_split; lv++)
         if (optimal_val_splits(A_offline, bucket, total_losses, d, ((int*)col_losses_i->storage)[d], lv) != 0) break;
-
     float min_tmp = FLT_MIN;
     int min_idx;
     for (int i=0; i<steps; i++) min_tmp = MIN(min_tmp, ((float*)total_losses->storage)[i]);
@@ -382,7 +379,9 @@ B(3, 1)  B(3, 2)   B(3, 3)  B(3, 4)    | nth=2
 
     optimize_split_thresholds(bucket, min_idx, best_dim, nth_split, A_offline);
     optimize_bucket_splits(bucket, best_dim, A_offline);
+    printf("LOOP\n");
   }
+  printf("FINISHED\n");
   
   amm_ndarray_free(col_losses_i); amm_ndarray_free(total_losses);
 }
