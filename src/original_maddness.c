@@ -170,7 +170,7 @@ void compute_optimal_val_splits(float* threshold, float* loss, NDArray* A_offlin
   NDArray* a_offline_r = amm_ndarray_ascontiguous(A_offline);
   amm_ndarray_view_index(a_offline_r, 0, bucket->n_indices, bucket->indices);
   NDArray* a_offline_r1 = amm_ndarray_ascontiguous(a_offline_r);
-  amm_ndarray_free(a_offline_r);
+  
   NDArray* x_sort_indices = sort_rows_based_on_col(a_offline_r1, dim);
   NDArray* x_sort_indices_rev = ndarray_reverse(x_sort_indices);
   int N = amm_ndarray_size_of(x_sort_indices, 0);
@@ -182,35 +182,34 @@ void compute_optimal_val_splits(float* threshold, float* loss, NDArray* A_offlin
   amm_ndarray_view_index(a_offline_r1, 0, N, (int*)x_sort_indices->storage);
   NDArray* a_offline_r2 = amm_ndarray_ascontiguous(a_offline_r1);
   cumulative_sse(a_offline_r2, x_head);
-  amm_ndarray_free(a_offline_r2);
   amm_ndarray_view_index(a_offline_r1, 0, N, (int*)x_sort_indices_rev->storage);
   NDArray* a_offline_r3 = amm_ndarray_ascontiguous(a_offline_r1);
   cumulative_sse(a_offline_r3, x_tail);
-  amm_ndarray_free(a_offline_r3);
   amm_ndarray_add(x_head, x_tail);
   NDArray* s_out = amm_ndarray_sum(x_head, 1);
-  amm_ndarray_free(x_head); amm_ndarray_free(x_tail);
 
   int N1 = amm_ndarray_size_of(s_out, 0);
   NDArray* s_out_i = amm_ndarray_zeros(amm_make_shape(1, (int[]){N1}), AMM_DTYPE_I32);
   argsort((float*)s_out->storage, N1, (int*)s_out_i->storage);
-  amm_ndarray_apply_unary(int, x[x_i] = N1 - x[x_i], s_out_i);
+  amm_ndarray_apply_unary(int, x[x_i] = (N1-1) - x[x_i], s_out_i);
   int best_idx = ((int*)s_out_i->storage)[0];
   int next_idx = MIN(1+best_idx, amm_ndarray_size_of(A_offline, 0) - 1);
 
   int col_idx1 = ((int*)x_sort_indices->storage)[best_idx];
-  int col_idx2 = ((int*)x_sort_indices->storage)[next_idx];
-
-  float val1 = amm_ndarray_aref(float, A_offline, col_idx1, dim);
-  float val2 = amm_ndarray_aref(float, A_offline, col_idx2, dim);
+  int col_idx2 = ((int*)x_sort_indices->storage)[next_idx];  
+  float val1 = amm_ndarray_aref(float, a_offline_r, col_idx1, dim);
+  float val2 = amm_ndarray_aref(float, a_offline_r, col_idx2, dim);
 
   threshold[0] = (val1 + val2) / 2;
   loss[0] = amm_ndarray_aref(float, s_out, best_idx);
-  printf("threshold:%f loss:%f\n", threshold[0], loss[0]);
-
-  //amm_ndarray_free(x_sort_indices);
-  //amm_ndarray_free(x_sort_indices_rev);
-  //  amm_ndarray_free(s_out);
+  
+  amm_ndarray_free(x_head); amm_ndarray_free(x_tail);
+  amm_ndarray_free(a_offline_r3);
+  amm_ndarray_free(a_offline_r2);
+  amm_ndarray_free(a_offline_r);
+  amm_ndarray_free(s_out);
+  amm_ndarray_free(x_sort_indices);
+  amm_ndarray_free(x_sort_indices_rev); 
 }
 
 int optimal_val_splits(NDArray* A_offline, Bucket* bucket, NDArray* total_losses, int d, int dim, int tree_level) {
@@ -220,6 +219,7 @@ int optimal_val_splits(NDArray* A_offline, Bucket* bucket, NDArray* total_losses
     compute_optimal_val_splits(threshold, loss, A_offline, bucket, dim);
     float threshold_ = threshold[0], loss_ = loss[0];
     free(threshold); free(loss);
+    printf("%f %f\n", threshold_, loss_);
   } else {
     Bucket* left = bucket->left_child;
     Bucket* right = bucket->right_child;
