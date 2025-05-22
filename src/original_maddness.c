@@ -49,7 +49,7 @@ Bucket *amm_bucket_alloc() {
   bucket->index = 0;
   bucket->threshold = 0.0f;
   bucket->threshold_candidates = NULL;
-  bucket->children = NULL;
+  bucket->left_child = NULL; bucket->right_child=NULL;
   bucket->indices = NULL;
   bucket->n_indices = 0;
   return bucket;
@@ -58,7 +58,6 @@ Bucket *amm_bucket_alloc() {
 void amm_bucket_free(Bucket* bucket) {
   if (bucket != NULL) {
     free(bucket->threshold_candidates);
-    free(bucket->children);
     free(bucket->indices);
     free(bucket);
   }
@@ -72,7 +71,36 @@ Bucket *amm_bucket_alloc_toplevel(int N) {
   return bucket;
 }
 
-void learn_binary_tree_splits(NDArray* A_offline, int col_i, int steps, int nsplits) {
+void col_variances(NDArray* out, Bucket* bucket, NDArray* A_offline, int do_mean_p) {
+  NDArray* a_offline_r = amm_ndarray_ascontiguous(A_offline);
+  // Slicing a_offling_r rows by a jurisdictions of the bucket.
+  amm_ndarray_view_index(a_offline_r, 0, bucket->n_indices, bucket->indices);
+  int D = amm_ndarray_size_of(a_offline_r, 1);
+  NDArray* mu = amm_ndarray_sum(a_offline_r, 1); // TODO: Replace w/ mean
+  amm_ndarray_apply_unary(float, x[x_i] /= (float)D, mu);
+  amm_ndarray_expand(mu, (int[]){1, D});
+  amm_ndarray_sub(a_offline_r, mu); // (a_offline_r - mu)^2
+  amm_ndarray_mul(a_offline_r, a_offline_r);
+  if (do_mean_p == 1) amm_ndarray_apply_unary(float, x[x_i] /= (float)bucket->n_indices, a_offline_r);
+  NDArray* caf = amm_ndarray_ascontiguous(a_offline_r);
+  amm_ndarray_free(a_offline_r);
+  NDArray* result = amm_ndarray_sum(caf, 0);
+  amm_assert_shape_eq(out, result);
+  amm_ndarray_apply_binary(float, float, out[out_i] += x[x_i], out, result);
+  amm_ndarray_free(result);
+  amm_ndarray_free(caf);
+  amm_ndarray_free(mu);
+}
+
+void sumup_col_sum_sqs(NDArray* col_losses, Bucket* bucket, NDArray* A_offline) {
+  if (bucket->indices) col_variances(col_losses, bucket, A_offline, 0);
+  if (bucket->left_child != NULL && bucket->right_child != NULL) {
+    sumup_col_sum_sqs(col_losses, bucket->left_child, A_offline);
+    sumup_col_sum_sqs(col_losses, bucket->right_child, A_offline);
+  }
+}
+
+void learn_binary_tree_splits(NDArray* A_offline, NDArray* col_losses, int col_i, int steps, int nsplits) {
   /*
     
 Figure:
@@ -84,9 +112,15 @@ B(3, 1)  B(3, 2)   B(3, 3)  B(3, 4)    | nth=2
                                        | ...
                                        | nth=nsplits
   */
-  //  Bucket* bucket = amm_bucket_alloc_toplevel(A_offline->shape[0]); // Start with one big buckets covering all rows
-  // float* col_losses = malloc(steps * sizeof(float));
-
+  // A_offline: [n_rows, steps] sliced array.
+  // B(1, 1) is the origin of all buckets
+  amm_assert(amm_ndarray_size_of(A_offline, 1) == steps, "invaild size of A_offline");
+  Bucket* bucket = amm_bucket_alloc_toplevel(amm_ndarray_size_of(A_offline, 0)); // Start with one big buckets covering all rows
+  for (int nth_split=0; nth_split < nsplits; nth_split++) {
+    amm_ndarray_apply_unary(float, x[x_i] = 0.0f, col_losses); // TODO: Implement amm_ndarray_fill
+    sumup_col_sum_sqs(col_losses, bucket, A_offline);
+    // argsort col losses
+  }
 }
 
 // Protoype Learning
@@ -111,6 +145,8 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
   // TODO: The shape of buckets???
   if (gemm->buckets == NULL) gemm->buckets = amm_ndarray_zeros(amm_make_shape(2, (int[]){gemm->C, gemm->nsplits}), A_offline->dtype);
   if (gemm->protos == NULL)  gemm->protos = amm_ndarray_zeros(amm_make_shape(3, (int[]){gemm->C, gemm->n_cluster, gemm->M}), A_offline->dtype);
+
+  NDArray* col_losses = amm_ndarray_zeros(amm_make_shape(2, (int[]){1, steps}), AMM_DTYPE_F32);
   
 #ifdef AMM_C_USE_OMP
 #pragma omp parallel for
@@ -121,8 +157,10 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
     // as well as prototype
     amm_ndarray_slice(A_offline, 1, col_i, col_i+steps, 1);
     amm_ndarray_slice(gemm->protos, 2, col_i, col_i+steps, 1);
-    // learn_binary_tree_splits(A_offline, col_i, steps, gemm->nsplits);
+    learn_binary_tree_splits(A_offline, col_losses, col_i, steps, gemm->nsplits);
   }
+
+  amm_ndarray_free(col_losses);
 }
 
 void learn_proto_and_hash_function(OriginalMaddnessGemm* gemm, NDArray* A_offline) {

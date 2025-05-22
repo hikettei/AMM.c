@@ -31,7 +31,7 @@ struct Bucket {
   int index;
   float threshold;
   void* threshold_candidates;
-  void* children; // Since Bucket is a binary tree, children is always NULL or cons.
+  Bucket* left_child; Bucket* right_child;
   void* indices;
   int n_indices; // Number of indices in this bucket
 };

@@ -705,3 +705,20 @@ void print_ndarray(__amm_keep NDArray* arr) {
   free(dims);
   free(strides);
 }
+
+void amm_assert_shape_eq(__amm_keep NDArray* a, __amm_keep NDArray* b) {
+  if (!a || !b) {
+    fprintf(stderr, "amm_assert_shape_eq: one of the arrays is NULL\n");
+    return;
+  }
+  if (a->shape->nrank != b->shape->nrank) {
+    fprintf(stderr, "amm_assert_shape_eq: rank mismatch %d vs %d\n", a->shape->nrank, b->shape->nrank);
+    return;
+  }
+  for (int i = 0; i < a->shape->nrank; ++i) {
+    if (a->shape->axes[i]->size != b->shape->axes[i]->size) {
+      fprintf(stderr, "amm_assert_shape_eq: size mismatch at axis %d: %d vs %d\n", i, a->shape->axes[i]->size, b->shape->axes[i]->size);
+      return;
+    }
+  }
+}

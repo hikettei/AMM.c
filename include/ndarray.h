@@ -190,3 +190,5 @@ __amm_give NDArray* amm_ndarray_matmul(__amm_take NDArray* a, __amm_take NDArray
 // TODO: Contiguous Partを見つけたら，BLAS_LIKE Operationでvectorizeとかして計算
 // 
 void print_ndarray(__amm_keep NDArray* arr);
+
+void amm_assert_shape_eq(__amm_keep NDArray* a, __amm_keep NDArray* b);

@@ -24,8 +24,9 @@ int main() {
   OriginalMaddnessGemm* mgemm = amm_original_maddness_gemm_alloc(512, 512, 512, 1, 16, 16, 4, AMM_DTYPE_F32);
   int a_rows = 1024;
   // We are going to approximate A[N M] @ B[M K]
-  NDArray *A_offline = randn(a_rows, mgemm->N);
-  A_offline = amm_ndarray_index_components(A_offline);
+  NDArray *A_offline = randn(a_rows, mgemm->M);
+  // for debug
+  amm_ndarray_index_components(A_offline);
   NDArray *A         = randn(mgemm->N, mgemm->M);
   NDArray *B         = randn(mgemm->M, mgemm->K);
   print_ndarray(A_offline);
