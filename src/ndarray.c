@@ -515,19 +515,29 @@ void print_ndarray(__amm_keep NDArray* arr) {
   }
   int nrank = amm_ndarray_rank(arr);
   int* dims = malloc(nrank * sizeof *dims);
+  int* strides = malloc(nrank * sizeof *dims);
+  
   for (int i = 0; i < nrank; ++i) {
     dims[i] = amm_ndarray_size_of(arr, i);
   }
 
   int* idx = malloc(nrank * sizeof *idx);
-  printf("NDArray(shape=[");
+  printf("NDArray{shape=[");
   for (int i = 0; i < nrank; ++i) {
     if (i > 0) printf(", ");
     printf("%d", dims[i]);
   }
+  printf("], strides=[");
+  for (int i = 0; i < nrank; ++i) {
+    if (i > 0) printf(", ");
+    strides[i] = amm_ndarray_stride_of(arr, i);
+    printf("%d", strides[i]);
+  }
   printf("], dtype=%d, storage=%p, \n", arr->dtype, arr->storage);
+  printf("  data=");
   print_rec(arr, nrank, dims, arr->dtype, idx, 0);
-  printf(")\n");
+  printf("\n}\n");
   free(idx);
   free(dims);
+  free(strides);
 }
