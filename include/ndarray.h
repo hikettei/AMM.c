@@ -79,6 +79,7 @@ __amm_give NDArray* amm_ndarray_randn(Shape* shape, AMM_DType dtype);
 __amm_keep NDArray* amm_ndarray_reshape(__amm_take NDArray* arr, Shape* new_shape);
 __amm_keep NDArray* amm_ndarray_permute(__amm_take NDArray* arr, ...);
 __amm_keep NDArray* amm_ndarray_expand(__amm_take NDArray* arr, const int* expand);
+__amm_keep NDArray* amm_ndarray_view_index(__amm_take NDArray* arr, int rank, int new_size, const int* indices);
 __amm_keep NDArray* amm_ndarray_view(__amm_take NDArray* arr, int* shape);
 // ~~~ Apply ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // TODO: Add Optimization using OpenMP depending on the hardware

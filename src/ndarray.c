@@ -102,7 +102,7 @@ __amm_give Shape* amm_make_row_major_shape(int nrank, int* shape) {
 
 void amm_axis_free(Axis* axis) {
   if (!axis) return;
-  if (axis->random_access_idx != NULL) free(axis->random_access_idx);
+  // if (axis->random_access_idx != NULL) free(axis->random_access_idx);
   free(axis);
 }
 
@@ -252,6 +252,18 @@ __amm_keep NDArray* amm_ndarray_permute(__amm_take NDArray* arr, ...) {
   arr->shape->axes = new_axes;
   free(old_axes);
   free(perm);
+  return arr;
+}
+
+__amm_keep NDArray* amm_ndarray_view_index(__amm_take NDArray* arr, int rank, int new_size, const int* indices) {
+  // Reads the indices as a random accessing.
+  // indices are assumed to be in the range of [0, arr->shape->axes[rank]->size)
+  amm_assert(rank <= arr->shape->nrank && rank >= 0, "amm_ndarray_view_index: invalid rank %d", rank);
+  Axis* axis = arr->shape->axes[rank];
+  amm_assert(axis->random_access_idx == NULL, "amm_ndarray_view_index: random_access(random_access(x)) view merge is not implemented yet.");
+  axis->random_access_idx = indices;
+  axis->size = new_size;
+  // TODO(hikettei): how to design the indices memory management? is there no double free?
   return arr;
 }
 
