@@ -391,7 +391,7 @@ void _amm_step_simulated_loop(int current_rank, int nrank, const int* iteration_
 
 void _amm_ndarray_apply(int nargs, NDArray** args,
 #if defined(AMM_C_GCC_MODE)
-                        void (*range_invoker)(int, int*, int*), void (*elwise_invoker)(int*))
+                        void (*range_invoker)(int, int*, int*), void (*elwise_invoker)(int*)
 #elif defined(AMM_C_BLOCK_MODE)
   void (^range_invoker)(int, int*, int*), void (^elwise_invoker)(int*)
 #endif
