@@ -7,4 +7,3 @@ endfunction()
 
 define_test(amm_test_ndarray test_ndarray.c)
 define_test(amm_test_amm1 test_amm1.c)
-
