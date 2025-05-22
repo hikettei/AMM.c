@@ -222,13 +222,13 @@ void compute_optimal_val_splits(float* threshold, float* loss, NDArray* A_offlin
   loss[0] = amm_ndarray_aref(float, s_out, best_idx);
 
   /*
-    amm_ndarray_free(x_head); amm_ndarray_free(x_tail);
-    amm_ndarray_free(a_offline_r3);
-    amm_ndarray_free(a_offline_r2);
-    amm_ndarray_free(a_offline_r);
-    amm_ndarray_free(s_out);
-    amm_ndarray_free(x_sort_indices);
-    amm_ndarray_free(x_sort_indices_rev);
+  amm_ndarray_free(x_head); amm_ndarray_free(x_tail);
+  amm_ndarray_free(a_offline_r3);
+  amm_ndarray_free(a_offline_r2);
+  amm_ndarray_free(a_offline_r);
+  amm_ndarray_free(s_out);
+  amm_ndarray_free(x_sort_indices);
+  amm_ndarray_free(x_sort_indices_rev);
   */
 }
 
@@ -365,7 +365,6 @@ B(3, 1)  B(3, 2)   B(3, 3)  B(3, 4)    | nth=2
   NDArray* col_losses_i = amm_ndarray_zeros(amm_make_shape(1, (int[]){steps}), AMM_DTYPE_I32);
   NDArray* total_losses = amm_ndarray_zeros(amm_make_shape(2, (int[]){1, steps}), AMM_DTYPE_F32);
   for (int nth_split=0; nth_split < nsplits; nth_split++) {
-    printf("C\n");
     amm_ndarray_apply_unary(float, x[x_i] = 0.0f, col_losses); // TODO: Implement amm_ndarray_fill
     sumup_col_sum_sqs(col_losses, bucket, A_offline);
     argsort((float*)col_losses->storage, steps, (int*)col_losses_i->storage); // col_losses_i <- argosrt(col_losses)
@@ -383,8 +382,6 @@ B(3, 1)  B(3, 2)   B(3, 3)  B(3, 4)    | nth=2
 
     optimize_split_thresholds(bucket, min_idx, best_dim, nth_split, A_offline);
     optimize_bucket_splits(bucket, best_dim, A_offline);
-    
-    printf("loop_finished\n");
   }
   
   amm_ndarray_free(col_losses_i); amm_ndarray_free(total_losses);
@@ -425,6 +422,7 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
     amm_ndarray_slice(A_offline, 1, col_i, col_i+steps-1, 1);
     amm_ndarray_slice(gemm->protos, 2, col_i, col_i+steps-1, 1);
     learn_binary_tree_splits(A_offline, col_losses, col_i, steps, gemm->nsplits);
+    printf("TRAINED");
   }
 
   amm_ndarray_free(col_losses);

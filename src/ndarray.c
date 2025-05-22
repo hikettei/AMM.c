@@ -584,7 +584,18 @@ __amm_give NDArray* amm_ndarray_ascontiguous(__amm_keep NDArray* arr) {
 }
 
 __amm_keep NDArray* amm_ndarray_index_components(__amm_take NDArray* arr) {
-  amm_ndarray_apply_unary(float, x[x_i] = x_i, arr);
+  switch (arr->dtype) {
+  case AMM_DTYPE_I32: 
+    amm_ndarray_apply_unary(int, x[x_i] = x_i, arr);
+    break;
+  case AMM_DTYPE_F32:
+    amm_ndarray_apply_unary(float, x[x_i] = x_i, arr);
+    break;
+  default:
+    fprintf(stderr, "amm_ndarray_index_components for dtype %d is not implemented yet.", arr->dtype);
+    return NULL;
+  }
+    
   return arr;
 }
 
