@@ -11,6 +11,18 @@
 #include <math.h>
 #include <string.h>
 
+/*
+  ndarray.c:
+    - dependency free ndarray library which aimed to smallness (NOT SPEED!). If it is fairy fast, it is ok.
+    - as for bottleneck operation (e.g.: gemm) users can replace them with OpenBLAS optimized ones (optional)
+    - should only be used for implementing the encoder part which is cached to disk, not for the actual computation part!!.
+  TODO:
+  - [ ] Merge ShapeTracker
+  - [ ] Simulated Loop Collapsing optimization
+  - [ ] Vectorized/Parallelized apply
+  - [ ] Broadcast Auto
+  - [ ] Improve the memory management
+ */
 int amm_axis_compute_index_on_memory(Axis* axis, int position) {
   if (axis->random_access_idx == NULL) {
     // Strided Access
