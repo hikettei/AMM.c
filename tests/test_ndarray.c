@@ -114,24 +114,24 @@ void test_ndarray_slice_1() {
   print_ndarray(arr);
   
   amm_ndarray_slice(arr, 0, 0, 2, 1);
-  amm_assert(amm_ndarray_size_of(arr, 0) == 2 && amm_ndarray_size_of(arr, 1) == 5 && amm_ndarray_size_of(arr, 2) == 5, "Invalid size for arr");
-  for (int i=0; i<2; i++)
+  amm_assert(amm_ndarray_size_of(arr, 0) == 3 && amm_ndarray_size_of(arr, 1) == 5 && amm_ndarray_size_of(arr, 2) == 5, "Invalid size for arr");
+  for (int i=0; i<3; i++)
     for (int j=0; j<5; j++)
       for (int k=0; k<5; k++)
         amm_assert(amm_ndarray_aref(float, arr, i, j, k) == i * 5 * 5 + j * 5 + k, "Invalid value at (%d, %d, %d)", i, j, k);
   
   amm_ndarray_slice(arr, 1, 0, 2, 1);
-  amm_assert(amm_ndarray_size_of(arr, 0) == 2 && amm_ndarray_size_of(arr, 1) == 2 && amm_ndarray_size_of(arr, 2) == 5, "Invalid size for arr");
-  for (int i=0; i<2; i++)
-    for (int j=0; j<2; j++)
+  amm_assert(amm_ndarray_size_of(arr, 0) == 3 && amm_ndarray_size_of(arr, 1) == 3 && amm_ndarray_size_of(arr, 2) == 5, "Invalid size for arr");
+  for (int i=0; i<3; i++)
+    for (int j=0; j<3; j++)
       for (int k=0; k<5; k++)
         amm_assert(amm_ndarray_aref(float, arr, i, j, k) == i * 5 * 5 + j * 5 + k, "Invalid value at (%d, %d, %d)", i, j, k);
   
   amm_ndarray_slice(arr, 2, 0, 2, 1);
-  amm_assert(amm_ndarray_size_of(arr, 0) == 2 && amm_ndarray_size_of(arr, 1) == 2 && amm_ndarray_size_of(arr, 2) == 2, "Invalid size for arr");
-  for (int i=0; i<2; i++)
-    for (int j=0; j<2; j++)
-      for (int k=0; k<2; k++)
+  amm_assert(amm_ndarray_size_of(arr, 0) == 3 && amm_ndarray_size_of(arr, 1) == 3 && amm_ndarray_size_of(arr, 2) == 3, "Invalid size for arr");
+  for (int i=0; i<3; i++)
+    for (int j=0; j<3; j++)
+      for (int k=0; k<3; k++)
         amm_assert(amm_ndarray_aref(float, arr, i, j, k) == i * 5 * 5 + j * 5 + k, "Invalid value at (%d, %d, %d)", i, j, k);
   
   print_ndarray(arr);
@@ -146,24 +146,24 @@ void test_ndarray_slice_2() {
   print_ndarray(arr);
   
   amm_ndarray_slice(arr, 0, 2, 4, 1);
-  amm_assert(amm_ndarray_size_of(arr, 0) == 2 && amm_ndarray_size_of(arr, 1) == 5 && amm_ndarray_size_of(arr, 2) == 5, "Invalid size for arr");
-  for (int i=0; i<2; i++)
+  amm_assert(amm_ndarray_size_of(arr, 0) == 3 && amm_ndarray_size_of(arr, 1) == 5 && amm_ndarray_size_of(arr, 2) == 5, "Invalid size for arr");
+  for (int i=0; i<3; i++)
     for (int j=0; j<5; j++)
       for (int k=0; k<5; k++)
         amm_assert(amm_ndarray_aref(float, arr, i, j, k) == (i+2) * 5 * 5 + j * 5 + k, "Invalid value at (%d, %d, %d)", i, j, k);
   
   amm_ndarray_slice(arr, 1, 2, 4, 1);
-  amm_assert(amm_ndarray_size_of(arr, 0) == 2 && amm_ndarray_size_of(arr, 1) == 2 && amm_ndarray_size_of(arr, 2) == 5, "Invalid size for arr");
-  for (int i=0; i<2; i++)
-    for (int j=0; j<2; j++)
+  amm_assert(amm_ndarray_size_of(arr, 0) == 3 && amm_ndarray_size_of(arr, 1) == 3 && amm_ndarray_size_of(arr, 2) == 5, "Invalid size for arr");
+  for (int i=0; i<3; i++)
+    for (int j=0; j<3; j++)
       for (int k=0; k<5; k++)
         amm_assert(amm_ndarray_aref(float, arr, i, j, k) == (i+2) * 5 * 5 + (j+2) * 5 + k, "Invalid value at (%d, %d, %d)", i, j, k);
   
   amm_ndarray_slice(arr, 2, 2, 4, 1);
-  amm_assert(amm_ndarray_size_of(arr, 0) == 2 && amm_ndarray_size_of(arr, 1) == 2 && amm_ndarray_size_of(arr, 2) == 2, "Invalid size for arr");
-  for (int i=0; i<2; i++)
-    for (int j=0; j<2; j++)
-      for (int k=0; k<2; k++)
+  amm_assert(amm_ndarray_size_of(arr, 0) == 3 && amm_ndarray_size_of(arr, 1) == 3 && amm_ndarray_size_of(arr, 2) == 3, "Invalid size for arr");
+  for (int i=0; i<3; i++)
+    for (int j=0; j<3; j++)
+      for (int k=0; k<3; k++)
         amm_assert(amm_ndarray_aref(float, arr, i, j, k) == (i+2) * 5 * 5 + (j+2) * 5 + (k+2), "Invalid value at (%d, %d, %d)", i, j, k);
   
   print_ndarray(arr);
@@ -188,7 +188,6 @@ void test_ndarray_slice_4() {
   NDArray* arr = amm_ndarray_zeros(amm_make_row_major_shape(1, (int[]){10}), AMM_DTYPE_F32);
   arr = amm_ndarray_index_components(arr);
   amm_ndarray_slice(arr, 0, 9, 1, 2);
-  print_ndarray(arr);
   amm_assert(amm_ndarray_size_of(arr, 0) == 4, "Invalid size for arr");
   for (int i=0; i<4; i++)
     amm_assert(amm_ndarray_aref(float, arr, i) == 9-i*2, "Invalid value at (%d)", i);
@@ -207,6 +206,19 @@ void test_ndarray_slice_5() {
     amm_assert(amm_ndarray_aref(float, arr, i) == 9-i*2, "Invalid value at (%d)", i);
   amm_ndarray_free(arr);
   printf("Passed: test_ndarray_slice_5\n");
+}
+
+void test_ndarray_slice_6() {
+  // another equivalent case for slice_4
+  NDArray* arr = amm_ndarray_zeros(amm_make_row_major_shape(1, (int[]){10}), AMM_DTYPE_F32);
+  arr = amm_ndarray_index_components(arr);
+  amm_ndarray_slice(arr, 0, 0, 9, -1);
+  NDArray* arr1 = amm_ndarray_ascontiguous(arr);
+  amm_ndarray_free(arr);
+  amm_assert(amm_ndarray_size_of(arr1, 0) == 10, "Invalid size for arr");
+  for (int i=0; i<10; i++)
+    amm_assert(amm_ndarray_aref(float, arr1, i) == 9-i, "Invalid value at (%d)", i);
+  printf("Passed: test_ndarray_slice_6\n");
 }
 
 void test_ndarray_sum() {
@@ -233,6 +245,7 @@ int main(void) {
   test_ndarray_slice_3();
   test_ndarray_slice_4();
   test_ndarray_slice_5();
+  test_ndarray_slice_6();
   test_ndarray_sum();
   
 }

@@ -324,8 +324,7 @@ __amm_keep NDArray* amm_ndarray_slice(__amm_take NDArray* arr, int rank, int fro
   
   Axis* axis = arr->shape->axes[rank];
   amm_assert(axis->random_access_idx == NULL, "amm_ndarray_slice: random_access(random_access(x)) view merge is not implemented yet.");
-  
-  axis->size = (to - from) / by;
+  axis->size = abs((1+abs(to - from)) / by);
   axis->by = by;
   axis->offset = from;
   
@@ -373,7 +372,7 @@ void _amm_step_simulated_loop(int current_rank, int nrank, const int* iteration_
       }
     } else {
       // If none of then has random access, we can just use range_applier which is faster.
-      for (int i=0; i<nargs; i++) increments[i] = amm_ndarray_stride_of(args[i], current_rank);
+      for (int i=0; i<nargs; i++) increments[i] = amm_ndarray_stride_of(args[i], current_rank) * args[i]->shape->axes[current_rank]->by;
       for (int i=0; i<nargs; i++) offsets[i] += amm_axis_compute_index_on_memory(args[i]->shape->axes[current_rank], 0);
       // Call the range_applier
       range_invoker(iteration_space[current_rank], offsets, increments);

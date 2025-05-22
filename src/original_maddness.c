@@ -221,8 +221,8 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
     printf("col_i: %d, nth: %d\n", col_i, nth);
     // Reading A_offline [T, 0:4], A_offline[T, 4:8], A_offline[T, 8:12], ..., A_offline[T, col_i:col_i+4] ...
     // as well as prototype
-    amm_ndarray_slice(A_offline, 1, col_i, col_i+steps, 1);
-    amm_ndarray_slice(gemm->protos, 2, col_i, col_i+steps, 1);
+    amm_ndarray_slice(A_offline, 1, col_i, col_i+steps-1, 1);
+    amm_ndarray_slice(gemm->protos, 2, col_i, col_i+steps-1, 1);
     learn_binary_tree_splits(A_offline, col_losses, col_i, steps, gemm->nsplits);
   }
 
