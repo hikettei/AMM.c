@@ -110,24 +110,19 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
   // Allocation
   // TODO: The shape of buckets???
   if (gemm->buckets == NULL) gemm->buckets = amm_ndarray_zeros(amm_make_shape(2, (int[]){gemm->C, gemm->nsplits}), A_offline->dtype);
-  if (gemm->protos == NULL)  gemm->protos = amm_ndarray_zeros(amm_make_shape(3, (int[]){gemm->C, gemm->n_cluster, steps}), A_offline->dtype);
-  // Reading A_offline [T, 0:4], A_offline[T, 4:8], A_offline[T, 8:12], ..., A_offline[T, col_i:col_i+4]
+  if (gemm->protos == NULL)  gemm->protos = amm_ndarray_zeros(amm_make_shape(3, (int[]){gemm->C, gemm->n_cluster, gemm->M}), A_offline->dtype);
+  
 #ifdef AMM_C_USE_OMP
 #pragma omp parallel for
 #endif
   for (int col_i=0, nth=0; col_i<gemm->M; col_i+=steps, nth++) {
     printf("col_i: %d, nth: %d\n", col_i, nth);
+    // Reading A_offline [T, 0:4], A_offline[T, 4:8], A_offline[T, 8:12], ..., A_offline[T, col_i:col_i+4] ...
+    // as well as prototype
     amm_ndarray_slice(A_offline, 1, col_i, col_i+steps, 1);
-    print_ndarray(A_offline);
+    amm_ndarray_slice(gemm->protos, 2, col_i, col_i+steps, 1);
     // learn_binary_tree_splits(A_offline, col_i, steps, gemm->nsplits);
   }
-  // NDArray作る。
-  // 短冊状にした各Bucketごとに学習
-  // どこからHardware Specificにする？
-  // ここからやっていい？
-  // 1. INDEX(i, j)を作る
-  // 2. Memory Order???
-  // Changed policy: Implement HashLearning in C
 }
 
 void learn_proto_and_hash_function(OriginalMaddnessGemm* gemm, NDArray* A_offline) {
