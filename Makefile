@@ -17,4 +17,5 @@ test: ## Run unit tests
 	@mkdir -p build
 	@cmake -S . -B ./build -DCMAKE_C_COMPILER=$(CC) -DAMM_C_BUILD_TESTS=ON -G Ninja && cd build && ninja
 	@echo "Running unit tests..."
-	@./build/amm_test
+	@./build/amm_test_ndarray
+	@./build/amm_test_amm1
