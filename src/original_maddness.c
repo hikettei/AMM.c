@@ -184,10 +184,9 @@ void compute_optimal_val_splits(float* threshold, float* loss, NDArray* A_offlin
   NDArray* a_offline_r3 = amm_ndarray_ascontiguous(a_offline_r1);
   cumulative_sse(a_offline_r3, x_tail);
   amm_ndarray_free(a_offline_r3);
-
-  print_ndarray(x_head);
-  print_ndarray(x_tail);
-  
+  amm_ndarray_add(x_head, x_tail);
+  NDArray* s_out = amm_ndarray_sum(x_head, 1);
+  amm_ndarray_free(x_head); amm_ndarray_free(x_tail);
   
 }
 
