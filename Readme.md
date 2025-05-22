@@ -14,9 +14,8 @@
 
 ### Project Design
 
-(TODO: 英訳)
 
-- [ ] 将来より良い近似アルゴリズムが出るかもしれない。その際になるべく何も考えないで実装を追加したい。各手法間で共通項があっても一才抽象化を実施しない。その代わりにEntry Pointを複数もつ。
+- [ ] In the future, better approximation algorithms may emerge. When that happens, I want to be able to add implementations with as little thought as possible. Even if there are commonalities between methods, I will not perform any abstraction. Instead, I will provide multiple entry points.
 
 ### Supported Architectures
 

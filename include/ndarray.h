@@ -54,6 +54,7 @@ struct NDArray {
 __amm_give Shape* amm_make_strided_shape(int nrank, const int* shape, const int* stride);
 __amm_give Shape* amm_make_column_major_shape(int nrank, int* shape);
 __amm_give Shape* amm_make_row_major_shape(int nrank, int* shape);
+__amm_give Shape* amm_make_shape(int nrank, int* shape);
 // Freer
 void amm_axis_free(Axis* axis);
 void amm_shape_free(__amm_take Shape* s);
@@ -167,19 +168,23 @@ __amm_keep NDArray* amm_ndarray_add(__amm_take NDArray* out, __amm_keep NDArray*
 __amm_keep NDArray* amm_ndarray_sub(__amm_take NDArray* out, __amm_keep NDArray* x);
 __amm_keep NDArray* amm_ndarray_mul(__amm_take NDArray* out, __amm_keep NDArray* x);
 __amm_keep NDArray* amm_ndarray_div(__amm_take NDArray* out, __amm_keep NDArray* x);
+__amm_keep NDArray* amm_ndarray_maximum(__amm_take NDArray* out, __amm_keep NDArray* x);
+__amm_keep NDArray* amm_ndarray_mininum(__amm_take NDArray* out, __amm_keep NDArray* x);
 __amm_keep NDArray* amm_ndarray_move(__amm_take NDArray* out, __amm_keep NDArray* x);
 
 __amm_give NDArray* amm_ndarray_ascontiguous(__amm_keep NDArray* arr);
+
+// ReduceOps
+__amm_give NDArray* amm_ndarray_sum(__amm_take NDArray* arr, int rank);
+__amm_give NDArray* amm_ndarray_max(__amm_take NDArray* arr, int rank);
+__amm_give NDArray* amm_ndarray_min(__amm_take NDArray* arr, int rank);
+
+__amm_give NDArray* amm_ndarray_matmul_naive(__amm_take NDArray* a, __amm_take NDArray* b);
+__amm_give NDArray* amm_ndarray_matmul(__amm_take NDArray* a, __amm_take NDArray* b);
 // TODO:
 // - ndarray_cast
 // - ndarray_arange
 
-// TODO: Use either of OpenBLAS or Our implementation
-// __amm_keep NDArray* _amm_ndarray_matmul_naive(); <- wrapping and make it testable.
-// __amm_keep NDArray* amm_ndarray_matmul();
-
-// #define amm_ndarray_apply_binary(applier, arr)
-// Implement Cast how to?
 // TODO: Create optimizer version which if the array is contiguous then converted to 1d op;
 // TODO: 再起的にIndexを計算
 // TODO: Contiguous Partを見つけたら，BLAS_LIKE Operationでvectorizeとかして計算

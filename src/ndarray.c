@@ -117,6 +117,16 @@ __amm_give Shape* amm_make_row_major_shape(int nrank, int* shape) {
   return s;
 }
 
+__amm_give Shape* amm_make_shape(int nrank, int* shape) {
+#if AMM_C_DEFAULT_MEMORY_ORDER == 0
+  return amm_make_row_major_shape(nrank, shape);
+#elif AMM_C_DEFAULT_MEMORY_ORDER == 1
+  return amm_make_column_major_shape(nrank, shape);
+#else
+#error "amm_make_shape: invalid memory order"
+#endif
+}
+
 void amm_axis_free(Axis* axis) {
   if (!axis) return;
   // if (axis->random_access_idx != NULL) free(axis->random_access_idx);
@@ -236,7 +246,7 @@ int amm_ndarray_total_size(__amm_keep const NDArray* arr) {
 __amm_keep NDArray* amm_ndarray_reshape(__amm_take NDArray* arr, Shape* new_shape) {
   // Reshape gives a new shape and new stride without changing the stride
   if (!arr) return 0;
-  amm_assert(amm_ndarray_is_contiguous(arr), "Reshape only works for contiguous arrays");
+  //  amm_assert(amm_ndarray_is_contiguous(arr), "Reshape only works for contiguous arrays");
   amm_shape_free(arr->shape); // Replaces the shape
   arr->shape = new_shape;
   return arr;
@@ -552,6 +562,7 @@ _DEFINE_ARITHMETIC_OP(sub, -=)
 _DEFINE_ARITHMETIC_OP(mul, *=)
 _DEFINE_ARITHMETIC_OP(div, /=)
 _DEFINE_ARITHMETIC_OP(move, =)
+// TODO: maximum, minimum, etc.
 
 __amm_give NDArray* amm_ndarray_ascontiguous(__amm_keep NDArray* arr) {
   int order = AMM_C_DEFAULT_MEMORY_ORDER; // TODO: Make order configurable
@@ -578,8 +589,32 @@ __amm_keep NDArray* amm_ndarray_index_components(__amm_take NDArray* arr) {
   return arr;
 }
 
+// TODO: #define DEFINE_REDUCE(name, binary_op, initial_value)
 __amm_give NDArray* amm_ndarray_sum(__amm_take NDArray* arr, int rank) {
   NDArray* carr = amm_ndarray_ascontiguous(arr);
+  int* reduced_size = malloc(carr->shape->nrank * sizeof(int));
+  int* expand_to = malloc(carr->shape->nrank * sizeof(int));
+  for (int r = 0; r < amm_ndarray_rank(carr); ++r) {
+    if (r == rank) reduced_size[r] = 1;
+    else reduced_size[r] = amm_ndarray_size_of(carr, r);
+    if (r == rank) expand_to[r] = amm_ndarray_size_of(carr, r);
+    else expand_to[r] = 1;
+  }
+  NDArray* out = amm_ndarray_zeros(amm_make_shape(carr->shape->nrank, reduced_size), arr->dtype);
+  amm_ndarray_expand(out, expand_to);
+  amm_ndarray_add(out, carr);
+  amm_ndarray_reshape(out, amm_make_shape(carr->shape->nrank, reduced_size));
+  free(reduced_size);
+  free(expand_to);
+  return out;
+}
+
+__amm_give NDArray* amm_ndarray_matmul_naive(__amm_take NDArray* a, __amm_take NDArray* b) {
+  // TODO
+}
+
+__amm_give NDArray* amm_ndarray_matmul(__amm_take NDArray* a, __amm_take NDArray* b) {
+  // TODO: #if defined(AMM_C_USE_OPENBLAS)
 }
 // ~~ Printers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // recursive print helper
