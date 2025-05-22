@@ -282,10 +282,11 @@ NDArray* tflist_as_index_list(NDArray* arr) {
   int size = amm_ndarray_size_of(arr, 0);
   int* tflist = (int*)arr->storage;
   int required_size = 0;
-  for (int i=0; i<size; i++) required_size += tflist[i] == 1 ? 1 : 0;
-  int* index_list = malloc(sizeof(int) * required_size);
+  for (int i=0; i<size; i++) required_size += (tflist[i] == 1 ? 1 : 0);
+  amm_assert(required_size > 0, "cannot create an array whose size is zero");
+  int* index_list = malloc(required_size * sizeof(int));
   int c = 0;
-  for (int i=0; i<required_size; i++)
+  for (int i=0; i<size; i++)
     if (tflist[i] == 1.0) {
       index_list[c] = i;
       c++;
@@ -311,12 +312,12 @@ void optimize_bucket_splits(Bucket* bucket, int best_dim, NDArray* A_offline) {
   float threshold = bucket->threshold;
 
   int mask_size[1] = {bucket->n_indices};
-  NDArray* left_mask = amm_ndarray_zeros(amm_make_shape(1, mask_size), AMM_DTYPE_I8);
-  NDArray* right_mask = amm_ndarray_zeros(amm_make_shape(1, mask_size), AMM_DTYPE_I8);
+  NDArray* left_mask = amm_ndarray_zeros(amm_make_shape(1, mask_size), AMM_DTYPE_I32);
+  NDArray* right_mask = amm_ndarray_zeros(amm_make_shape(1, mask_size), AMM_DTYPE_I32);
 
   amm_ndarray_apply_binary(int, float, out[out_i] = x[x_i] > threshold ? 1 : 0, left_mask, A_offline_cp);
   amm_ndarray_apply_binary(int, float, out[out_i] = x[x_i] > threshold ? 0 : 1, right_mask, A_offline_cp);
-
+  
   NDArray* left_side_points = tflist_as_index_list(left_mask);
   NDArray* right_side_points = tflist_as_index_list(right_mask);
   amm_ndarray_free(A_offline_cp);
@@ -325,6 +326,7 @@ void optimize_bucket_splits(Bucket* bucket, int best_dim, NDArray* A_offline) {
     bucket->left_child = create_new_bucket(left_side_points, bucket->tree_level+1, left_idx);
     bucket->right_child = create_new_bucket(right_side_points, bucket->tree_level+1, right_idx);
   } else {
+    printf("B\n");
     bucket->left_child->n_indices = amm_ndarray_size_of(left_side_points, 0);
     bucket->left_child->indices = left_side_points->storage;
     
