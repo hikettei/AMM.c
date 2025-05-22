@@ -219,7 +219,18 @@ int optimal_val_splits(NDArray* A_offline, Bucket* bucket, NDArray* total_losses
     compute_optimal_val_splits(threshold, loss, A_offline, bucket, dim);
     float threshold_ = threshold[0], loss_ = loss[0];
     free(threshold); free(loss);
-    printf("%f %f\n", threshold_, loss_);
+    amm_ndarray_aref(float, total_losses, 0, d) += loss_;
+    float curr_loss = amm_ndarray_aref(float, total_losses, 0, d);
+
+    // TODO: push threshold to bucket_threshold_candidates
+    
+    if (d == 0) { // TODO: Introduce early judge?
+      return 0;
+    } else {
+      for (int i=0; i<amm_ndarray_size_of(total_losses, 1); i++)
+        if (amm_ndarray_aref(float, total_losses, 0, i) >= curr_loss) return 0;
+      return 1;
+    }
   } else {
     Bucket* left = bucket->left_child;
     Bucket* right = bucket->right_child;
