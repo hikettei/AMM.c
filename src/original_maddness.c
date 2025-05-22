@@ -100,9 +100,52 @@ void sumup_col_sum_sqs(NDArray* col_losses, Bucket* bucket, NDArray* A_offline) 
   }
 }
 
+__amm_give NDArray* sort_rows_based_on_col(__amm_keep NDArray* x, int dim) {
+  NDArray* x1 = amm_ndarray_ascontiguous(x);
+  amm_ndarray_slice(x1, 1, dim, dim+1, 1);
+  NDArray* sliced = amm_ndarray_ascontiguous(x1);
+  NDArray* sorted = amm_ndarray_zeros(amm_make_shape(1, (int[]){amm_ndarray_size_of(x, 0)}), AMM_DTYPE_I32);
+  argsort((float*)sliced->storage, amm_ndarray_size_of(x, 0), (int*)sorted->storage);
+  int N = amm_ndarray_size_of(x1, 0);
+  amm_ndarray_apply_unary(int, x[x_i] = N - x[x_i], sorted)
+  amm_ndarray_free(sliced);
+  amm_ndarray_free(x1);
+  return sorted;
+}
+
+__amm_give NDArray* ndarray_reverse(__amm_keep NDArray* x) {
+  NDArray* x1 = amm_ndarray_ascontiguous(x);
+  amm_ndarray_slice(x1, 0, 0, amm_ndarray_size_of(x1, 0), -1);
+  NDArray* x2 = amm_ndarray_ascontiguous(x1);
+  amm_ndarray_free(x1);
+  return x2;
+}
+
+void compute_optimal_val_splits(float* threshold, float* loss, NDArray* A_offline, Bucket* bucket, int dim) {
+  if (bucket->indices == NULL || bucket->n_indices < 2) {
+    threshold[0] = 0.0, loss[0] = 0.0;
+    return;
+  }
+
+  NDArray* a_offline_r = amm_ndarray_ascontiguous(A_offline);
+  amm_ndarray_view_index(a_offline_r, 0, bucket->n_indices, bucket->indices);
+  NDArray* a_offline_r1 = amm_ndarray_ascontiguous(a_offline_r);
+  amm_ndarray_free(a_offline_r);
+  NDArray* x_sort_indices = sort_rows_based_on_col(a_offline_r1, dim);
+  NDArray* x_sort_indices_rev = ndarray_reverse(x_sort_indices);
+  printf("A\n");
+  print_ndarray(x_sort_indices);
+  print_ndarray(x_sort_indices_rev);
+  printf("b\n");
+}
+
 int optimal_val_splits(NDArray* A_offline, Bucket* bucket, NDArray* total_losses, int d, int dim, int tree_level) {
   if (bucket->tree_level == tree_level) {
-
+    float* threshold = malloc(sizeof(float));
+    float* loss = malloc(sizeof(float));
+    compute_optimal_val_splits(threshold, loss, A_offline, bucket, dim);
+    float threshold_ = threshold[0], loss_ = loss[0];
+    free(threshold); free(loss);
   } else {
     Bucket* left = bucket->left_child;
     Bucket* right = bucket->right_child;
@@ -141,7 +184,6 @@ B(3, 1)  B(3, 2)   B(3, 3)  B(3, 4)    | nth=2
     for (int d=0; d<steps; d++)
       for (int lv=0; lv<=nth_split; lv++)
         if (optimal_val_splits(A_offline, bucket, total_losses, d, ((int*)col_losses_i->storage)[d], lv) != 0) break;
-    
     // argsort col losses
   }
   amm_ndarray_free(col_losses_i) ;amm_ndarray_free(total_losses);
