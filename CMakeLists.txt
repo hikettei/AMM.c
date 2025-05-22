@@ -21,7 +21,8 @@ set(AMM_C_SOURCES
 add_library(${AMM_C_TARGET} SHARED ${AMM_C_SOURCES})
 target_include_directories(${AMM_C_TARGET} PRIVATE ./include/kernels ./include)
 
-target_compile_options(${AMM_C_TARGET} PUBLIC -Wall -lm)
+target_compile_options(${AMM_C_TARGET} PUBLIC -Wall)
+target_link_libraries(${AMM_C_TARGET} m)
 if (APPLE)
   target_compile_options(${AMM_C_TARGET} PUBLIC -fblocks)
 endif()
