@@ -76,7 +76,18 @@ void test_ndarray_permute() {
   amm_ndarray_free(arr1);
   amm_ndarray_free(arr2);
   printf("Passed: test_ndarray_permute\n");
- 
+}
+
+void test_ndarray_expand() {
+  NDArray* arr1 = amm_ndarray_zeros(amm_make_row_major_shape(2, (int[]){1, 1}), AMM_DTYPE_F32);
+  NDArray* arr2 = amm_ndarray_zeros(amm_make_row_major_shape(2, (int[]){10, 10}), AMM_DTYPE_F32);
+  amm_ndarray_apply_unary(float, x[x_i] = 1.0f, arr2);
+  for (int i=0; i<100; i++) amm_assert(((float*)arr2->storage)[i] == 1.0f, "Invalid value at (%d): expected %f", i, ((float*)arr2->storage)[i]);
+  arr1 = amm_ndarray_expand(arr1, (int[]){10, 10});
+  arr1 = amm_ndarray_apply_binary(float, float, out[out_i] = out[out_i] + x[x_i], arr1, arr2);
+  amm_assert(amm_ndarray_aref(float, arr1, 0, 0) == 100.0f, "Invalid value at (0, 0): expected 100.0");
+  amm_ndarray_free(arr1); amm_ndarray_free(arr2);
+  printf("Passed: test_ndarray_expand\n");
 }
 
 int main(void) {
@@ -84,4 +95,5 @@ int main(void) {
   test_ndarray_arange_and_contiguous_elwise();
   test_ndarray_reshape();
   test_ndarray_permute();
+  test_ndarray_expand();
 }
