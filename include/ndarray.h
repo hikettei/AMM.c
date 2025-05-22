@@ -1,5 +1,6 @@
 #include "amm_dtype.h"
 #include <stdbool.h>
+#include <stdarg.h>
 #include "utils.h"
 #pragma once
 
@@ -23,6 +24,7 @@ typedef struct Axis Axis;
 struct Axis {
   int size;
   int offset; // TODO: Introduce [3:5] (i.e.: real_size and X[-1:-3]) reversing.
+  int by;
   int stride;
   void* random_access_idx; // If random_access_idx was set to int* pointer, ndarray will read the corresponding index by random_access_idx[0], ... random_access_idx[size-1]
 };
@@ -37,6 +39,8 @@ struct Shape {
   bool is_contiguous;
 };
 
+int amm_shape_compute_index_on_memory(Shape* shape, ...);
+
 typedef struct NDArray NDArray;
 struct NDArray {
   Shape* shape;
@@ -50,6 +54,7 @@ struct NDArray {
 __amm_give Shape* amm_make_strided_shape(int nrank, const int* shape, const int* stride);
 __amm_give Shape* amm_make_column_major_shape(int nrank, int* shape);
 __amm_give Shape* amm_make_row_major_shape(int nrank, int* shape);
+__amm_give Shape* amm_make_shape(int nrank, int* shape);
 // Freer
 void amm_axis_free(Axis* axis);
 void amm_shape_free(__amm_take Shape* s);
@@ -66,6 +71,7 @@ int amm_ndarray_size_of(__amm_keep const NDArray* arr, int dim);
 int amm_ndarray_stride_of(__amm_keep const NDArray* arr, int dim);
 int amm_ndarray_total_size(__amm_keep const NDArray* arr);
 bool amm_ndarray_is_contiguous(__amm_keep const NDArray* arr);
+#define amm_ndarray_aref(dtype, arr, ...) ((dtype*)arr->storage)[amm_shape_compute_index_on_memory(arr->shape, __VA_ARGS__)]
 // ~~~ Initializers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 __amm_give NDArray* amm_ndarray_zeros(Shape* shape, AMM_DType dtype);
 __amm_give NDArray* amm_ndarray_randn(Shape* shape, AMM_DType dtype);
@@ -73,9 +79,10 @@ __amm_give NDArray* amm_ndarray_randn(Shape* shape, AMM_DType dtype);
 // ~~~ Movements ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // TODO: The only operation here is apply_map, (this can implement even matmul, im2col, which is enough for our goal)
 __amm_keep NDArray* amm_ndarray_reshape(__amm_take NDArray* arr, Shape* new_shape);
-__amm_keep NDArray* amm_ndarray_permute(__amm_take NDArray* arr, const int* perm);
-__amm_keep NDArray* amm_ndarray_view(__amm_take NDArray* arr, int* shape);
-__amm_keep NDArray* amm_ndarray_expand(__amm_take NDArray* arr, int* expand);
+__amm_keep NDArray* amm_ndarray_permute(__amm_take NDArray* arr, ...);
+__amm_keep NDArray* amm_ndarray_expand(__amm_take NDArray* arr, const int* expand);
+__amm_keep NDArray* amm_ndarray_view_index(__amm_take NDArray* arr, int rank, int new_size, const int* indices);
+__amm_keep NDArray* amm_ndarray_slice(__amm_take NDArray* arr, int rank, int from, int to, int by);
 // ~~~ Apply ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // TODO: Add Optimization using OpenMP depending on the hardware
 #define amm_expand_applier_unary(dtype, op)                             \
@@ -126,22 +133,60 @@ __amm_keep NDArray* _amm_ndarray_apply_ternary(__amm_take NDArray* out, __amm_ke
 #endif
 // ~~ Operations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 __amm_keep NDArray* amm_ndarray_sin(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_cos(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_tan(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_asin(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_acos(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_atan(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_sinh(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_cosh(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_tanh(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_asinh(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_acosh(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_atanh(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_exp(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_log(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_log10(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_log2(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_log1p(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_sqrt(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_rsqrt(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_cbrt(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_abs(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_neg(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_floor(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_ceil(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_round(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_trunc(__amm_take NDArray* arr);
+__amm_keep NDArray* amm_ndarray_sign(__amm_take NDArray* arr);
+// __amm_keep NDArray* amm_ndarray_clamp(__amm_take NDArray* arr, float min, float max);
+
 
 __amm_keep NDArray* amm_ndarray_index_components(__amm_take NDArray* arr);
 
 __amm_keep NDArray* amm_ndarray_add(__amm_take NDArray* out, __amm_keep NDArray* x);
+__amm_keep NDArray* amm_ndarray_sub(__amm_take NDArray* out, __amm_keep NDArray* x);
+__amm_keep NDArray* amm_ndarray_mul(__amm_take NDArray* out, __amm_keep NDArray* x);
+__amm_keep NDArray* amm_ndarray_div(__amm_take NDArray* out, __amm_keep NDArray* x);
+__amm_keep NDArray* amm_ndarray_maximum(__amm_take NDArray* out, __amm_keep NDArray* x);
+__amm_keep NDArray* amm_ndarray_mininum(__amm_take NDArray* out, __amm_keep NDArray* x);
+__amm_keep NDArray* amm_ndarray_move(__amm_take NDArray* out, __amm_keep NDArray* x);
+
+__amm_give NDArray* amm_ndarray_ascontiguous(__amm_keep NDArray* arr);
+
+// ReduceOps
+__amm_give NDArray* amm_ndarray_sum(__amm_take NDArray* arr, int rank);
+__amm_give NDArray* amm_ndarray_max(__amm_take NDArray* arr, int rank);
+__amm_give NDArray* amm_ndarray_min(__amm_take NDArray* arr, int rank);
+
+__amm_give NDArray* amm_ndarray_matmul_naive(__amm_take NDArray* a, __amm_take NDArray* b);
+__amm_give NDArray* amm_ndarray_matmul(__amm_take NDArray* a, __amm_take NDArray* b);
 // TODO:
 // - ndarray_cast
 // - ndarray_arange
 
-// TODO: Use either of OpenBLAS or Our implementation
-// __amm_keep NDArray* _amm_ndarray_matmul_naive(); <- wrapping and make it testable.
-// __amm_keep NDArray* amm_ndarray_matmul();
-
-// #define amm_ndarray_apply_binary(applier, arr)
-// Implement Cast how to?
 // TODO: Create optimizer version which if the array is contiguous then converted to 1d op;
 // TODO: 再起的にIndexを計算
 // TODO: Contiguous Partを見つけたら，BLAS_LIKE Operationでvectorizeとかして計算
-
+// 
 void print_ndarray(__amm_keep NDArray* arr);

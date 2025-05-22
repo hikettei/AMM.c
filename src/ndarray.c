@@ -11,16 +11,40 @@
 #include <math.h>
 #include <string.h>
 
+#define AMM_C_DEFAULT_MEMORY_ORDER 0
+/*
+  ndarray.c:
+    - dependency free ndarray library which aimed to smallness (NOT SPEED!). If it is fairy fast, it is ok.
+    - as for bottleneck operation (e.g.: gemm) users can replace them with OpenBLAS optimized ones (optional)
+    - should only be used for implementing the encoder part which is cached to disk, not for the actual computation part!!.
+  TODO:
+  - [ ] Merge ShapeTracker
+  - [ ] Simulated Loop Collapsing optimization
+  - [ ] Vectorized/Parallelized apply
+  - [ ] Broadcast Auto
+  - [ ] Improve the memory management
+ */
 int amm_axis_compute_index_on_memory(Axis* axis, int position) {
   if (axis->random_access_idx == NULL) {
     // Strided Access
-    return (axis->offset + position) * axis->stride;
+    return (axis->offset + position * axis->by) * axis->stride;
   } else {
     // Random Access
+#if defined(AMM_C_SAFE_MODE)
+    amm_assert(axis->by == 1, "amm_axis_compute_index_on_memory: random_access_idx is not supported with by != 1");
+#endif    
     return ((int*)axis->random_access_idx)[position] * axis->stride;
   }
 }
 
+int amm_shape_compute_index_on_memory(Shape* shape, ...) {
+  va_list args;
+  va_start(args, shape);
+  int index = 0;
+  for (int i = 0; i < shape->nrank; ++i) index += amm_axis_compute_index_on_memory(shape->axes[i], va_arg(args, int));
+  va_end(args);
+  return index;
+}
 /*
   ShapeTracker Initialization
 */
@@ -55,6 +79,7 @@ __amm_give Shape* amm_make_strided_shape(int nrank, const int* shape, const int*
     ax->size              = shape[i];
     ax->offset            = 0;
     ax->stride            = stride[i];
+    ax->by                = 1;
     ax->random_access_idx = NULL;
     s->axes[i] = ax;
     // TODO: Verify the contiguous of stride here?
@@ -92,9 +117,19 @@ __amm_give Shape* amm_make_row_major_shape(int nrank, int* shape) {
   return s;
 }
 
+__amm_give Shape* amm_make_shape(int nrank, int* shape) {
+#if AMM_C_DEFAULT_MEMORY_ORDER == 0
+  return amm_make_row_major_shape(nrank, shape);
+#elif AMM_C_DEFAULT_MEMORY_ORDER == 1
+  return amm_make_column_major_shape(nrank, shape);
+#else
+#error "amm_make_shape: invalid memory order"
+#endif
+}
+
 void amm_axis_free(Axis* axis) {
   if (!axis) return;
-  if (axis->random_access_idx != NULL) free(axis->random_access_idx);
+  // if (axis->random_access_idx != NULL) free(axis->random_access_idx);
   free(axis);
 }
 
@@ -150,6 +185,25 @@ __amm_give NDArray* amm_ndarray_zeros(Shape* shape, AMM_DType dtype) {
   memset(storage, 0, total_size * amm_dtype_size(dtype));
   return amm_ndarray_alloc(shape, storage, dtype);
 }
+
+#define sample_randn(dtype) (dtype)sqrt(-2.0 * log((dtype)rand() / RAND_MAX)) * cos(2.0 * M_PI * (dtype)rand() / RAND_MAX)
+__amm_give NDArray* amm_ndarray_randn(Shape* shape, AMM_DType dtype) {
+  NDArray* arr = amm_ndarray_zeros(shape, dtype);
+  amm_assert(arr, "amm_ndarray_randn: failed to alloc NDArray");
+  switch (dtype) {
+  case AMM_DTYPE_F32:
+    amm_ndarray_apply_unary(float, x[x_i] = sample_randn(float), arr);
+    break;
+  case AMM_DTYPE_F64:
+    amm_ndarray_apply_unary(double, x[x_i] = sample_randn(double), arr);
+    break;
+  default:
+    fprintf(stderr, "amm_ndarray_randn: unsupported dtype %d\n", dtype);
+    amm_ndarray_free(arr);
+    return NULL;
+  }
+  return arr;
+}
 // ~~~ Accessors ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 int amm_ndarray_rank(__amm_keep const NDArray* arr) {
   return arr ? arr->shape->nrank : 0;
@@ -192,14 +246,26 @@ int amm_ndarray_total_size(__amm_keep const NDArray* arr) {
 __amm_keep NDArray* amm_ndarray_reshape(__amm_take NDArray* arr, Shape* new_shape) {
   // Reshape gives a new shape and new stride without changing the stride
   if (!arr) return 0;
-  amm_assert(amm_ndarray_is_contiguous(arr), "Reshape only works for contiguous arrays");
+  //  amm_assert(amm_ndarray_is_contiguous(arr), "Reshape only works for contiguous arrays");
   amm_shape_free(arr->shape); // Replaces the shape
   arr->shape = new_shape;
   return arr;
 }
 
-__amm_keep NDArray* amm_ndarray_permute(__amm_take NDArray* arr,
-                                        const int* perm) {
+__amm_keep NDArray* amm_ndarray_permute(__amm_take NDArray* arr, ...) {
+  va_list args;
+  va_start(args, arr);
+  int* perm = malloc(sizeof(int) * arr->shape->nrank);
+  if (!perm) {
+    fprintf(stderr, "amm_ndarray_permute: failed to alloc perm\n");
+    return NULL;
+  }
+  for (int i = 0; i < arr->shape->nrank; ++i) {
+    perm[i] = va_arg(args, int);
+    amm_assert(perm[i] >= 0 && perm[i] < arr->shape->nrank, "amm_ndarray_permute: invalid perm[%d]=%d", i, perm[i]);
+  }
+  va_end(args);
+  // TODO: Check if the permutation is valid
   if (!arr) return NULL;
   int nrank = amm_ndarray_rank(arr);
   Axis** old_axes = arr->shape->axes;
@@ -208,14 +274,62 @@ __amm_keep NDArray* amm_ndarray_permute(__amm_take NDArray* arr,
     fprintf(stderr, "amm_ndarray_permute: failed to alloc new_axes\n");
     return NULL;
   }
-  for (int i = 0; i < nrank; ++i) {
-    int p = perm[i];
-    amm_assert(p >= 0 && p < nrank, "amm_ndarray_permute: invalid perm[%d]=%d", i, p);
-    new_axes[i] = old_axes[p];
-  }
+  for (int i = 0; i < nrank; ++i) new_axes[i] = old_axes[perm[i]];
   // replace axes array and free old
   arr->shape->axes = new_axes;
   free(old_axes);
+  free(perm);
+  return arr;
+}
+
+__amm_keep NDArray* amm_ndarray_view_index(__amm_take NDArray* arr, int rank, int new_size, const int* indices) {
+  // Reads the indices as a random accessing.
+  // indices are assumed to be in the range of [0, arr->shape->axes[rank]->size)
+  amm_assert(rank <= arr->shape->nrank && rank >= 0, "amm_ndarray_view_index: invalid rank %d", rank);
+  Axis* axis = arr->shape->axes[rank];
+  amm_assert(axis->random_access_idx == NULL, "amm_ndarray_view_index: random_access(random_access(x)) view merge is not implemented yet.");
+  axis->random_access_idx = (void*)indices;
+  axis->size = new_size;
+  // TODO(hikettei): how to design the indices memory management? is there no double free?
+  return arr;
+}
+
+__amm_keep NDArray* amm_ndarray_expand(__amm_take NDArray* arr, const int* expand) {
+  // TODO: Broadcast shapes among arr->shape and expand.
+  // Note: we assume arr->nrank and the length of expand are the same.
+  amm_assert(arr->shape->is_contiguous, "amm_ndarray_expand: only works for contiguous arrays");
+  for (int i=0; i<amm_ndarray_rank(arr); i++) {
+    int size = amm_ndarray_size_of(arr, i);
+    int expand_to = expand[i];
+    if (expand_to == 1) continue; // No need to expand
+    amm_assert(size == 1, "amm_ndarray_expand: the size expanded to %d must be one.", expand_to);
+    arr->shape->is_contiguous = false; // We are going to change the stride
+    // Broadcast array into expand.
+    arr->shape->axes[i]->size = expand_to;
+    arr->shape->axes[i]->stride = 0;
+  }
+  return arr;
+}
+
+__amm_keep NDArray* amm_ndarray_slice(__amm_take NDArray* arr, int rank, int from, int to, int by) {
+  amm_assert(rank >= 0 && rank < amm_ndarray_rank(arr), "amm_ndarray_slice: invalid rank %d", rank);
+  // normalize args
+  if (from < 0) from = amm_ndarray_size_of(arr, rank) + from;
+  if (to < 0) to = amm_ndarray_size_of(arr, rank) + to;
+  if (by < 0) { int tmp=to; to=from; from=tmp; by=-by; }
+  if (from > to) by = -by;
+  
+  if (by > 0) amm_assert(from < to, "amm_ndarray_slice: invalid range %d:%d", from, to);
+  else amm_assert(from > to, "amm_ndarray_slice: invalid range %d:%d", from, to);
+  
+  Axis* axis = arr->shape->axes[rank];
+  amm_assert(axis->random_access_idx == NULL, "amm_ndarray_slice: random_access(random_access(x)) view merge is not implemented yet.");
+  
+  axis->size = (to - from) / by;
+  axis->by = by;
+  axis->offset = from;
+  
+  amm_assert(axis->size > 0, "amm_ndarray_slice: invalid shape %d", axis->size);
   return arr;
 }
 // ~~ Shape Solver ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -277,7 +391,7 @@ void _amm_step_simulated_loop(int current_rank, int nrank, const int* iteration_
 
 void _amm_ndarray_apply(int nargs, NDArray** args,
 #if defined(AMM_C_GCC_MODE)
-                        void (*range_invoker)(int, int*, int*), void (*elwise_invoker)(int*)),
+                        void (*range_invoker)(int, int*, int*), void (*elwise_invoker)(int*)
 #elif defined(AMM_C_BLOCK_MODE)
   void (^range_invoker)(int, int*, int*), void (^elwise_invoker)(int*)
 #endif
@@ -336,8 +450,8 @@ __amm_keep NDArray* _amm_ndarray_apply_unary(__amm_take NDArray* out, void (^ran
 #endif
 {
   _amm_ndarray_apply(1, (NDArray*[]){out},
-                     amm_lambda(void, (int size, int* offsets, int* increments) { range_applier(out->storage, size, offsets[0], increments[0]); },
-                                amm_lambda(void, (int* indices) { element_applier(out->storage, indices[0]); })));
+                     amm_lambda(void, (int size, int* offsets, int* increments) { range_applier(out->storage, size, offsets[0], increments[0]); }),
+                     amm_lambda(void, (int* indices) { element_applier(out->storage, indices[0]); }));
   return out;
 }
 
@@ -348,8 +462,8 @@ __amm_keep NDArray* _amm_ndarray_apply_binary(__amm_take NDArray* out, __amm_kee
 #endif
 {
   _amm_ndarray_apply(2, (NDArray*[]){out, in},
-                     amm_lambda(void, (int size, int* offsets, int* increments) { range_applier(out->storage, in->storage, size, offsets[0], increments[0], offsets[1], increments[1]); },
-                                amm_lambda(void, (int* indices) { element_applier(out->storage, in->storage, indices[0], indices[1]); })));
+                     amm_lambda(void, (int size, int* offsets, int* increments) { range_applier(out->storage, in->storage, size, offsets[0], increments[0], offsets[1], increments[1]); }),
+                     amm_lambda(void, (int* indices) { element_applier(out->storage, in->storage, indices[0], indices[1]); }));
   return out;
 }
 
@@ -360,29 +474,114 @@ __amm_keep NDArray* _amm_ndarray_apply_ternary(__amm_take NDArray* out, __amm_ke
 #endif
 {
   _amm_ndarray_apply(3, (NDArray*[]){out, x, y},
-                     amm_lambda(void, (int size, int* offsets, int* increments) { range_applier(out->storage, x->storage, y->storage, size, offsets[0], increments[0], offsets[1], increments[1], offsets[2], increments[2]); },
-                                amm_lambda(void, (int* indices) { element_applier(out->storage, x->storage, y->storage, indices[0], indices[1], indices[2]); })));
+                     amm_lambda(void, (int size, int* offsets, int* increments) { range_applier(out->storage, x->storage, y->storage, size, offsets[0], increments[0], offsets[1], increments[1], offsets[2], increments[2]); }),
+                     amm_lambda(void, (int* indices) { element_applier(out->storage, x->storage, y->storage, indices[0], indices[1], indices[2]); }));
   return out;
 }
 // ~~ Implementations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-__amm_keep NDArray* amm_ndarray_sin(__amm_take NDArray* arr) {
-  switch (arr->dtype) { // TODO: Make Switch Macro
-  case AMM_DTYPE_F32:
-    amm_ndarray_apply_f_unary(float, sinf, arr);
-    break;
-  case AMM_DTYPE_F64:
-    amm_ndarray_apply_f_unary(double, sin, arr);
-    break;
-  default:
-    fprintf(stderr, "amm_ndarray_sin: sin only supports for float and double, getting: %d\n", arr->dtype);
-    return NULL;
-  }
-  return arr;
-}
+#define _DEFINE_MATH_OP(name, op, dop)                                  \
+  __amm_keep NDArray* amm_ndarray_##name(__amm_take NDArray* arr) {     \
+    switch (arr->dtype)  {                                              \
+    case AMM_DTYPE_F32:                                                 \
+      amm_ndarray_apply_unary(float, x[x_i] = op(x[x_i]), arr);         \
+      break;                                                            \
+    case AMM_DTYPE_F64:                                                 \
+      amm_ndarray_apply_unary(double, x[x_i] = dop(x[x_i]), arr);       \
+      break;                                                            \
+    default:                                                            \
+      fprintf(stderr, "amm_ndarray_" #name ": " #name " does not support %d\n", arr->dtype); \
+      return NULL;                                                      \
+    }                                                                   \
+    return arr;                                                         \
+  }                                                                     \
 
-__amm_keep NDArray* amm_ndarray_add(__amm_take NDArray* out, __amm_keep NDArray* x) {
-  amm_ndarray_apply_binary(float, float, out[out_i] += x[x_i], out, x);
-  return out;
+_DEFINE_MATH_OP(sin, sinf, sin)
+     _DEFINE_MATH_OP(cos, cosf, cos)
+     _DEFINE_MATH_OP(tan, tanf, tan)
+     _DEFINE_MATH_OP(asin, asinf, asin)
+     _DEFINE_MATH_OP(acos, acosf, acos)
+     _DEFINE_MATH_OP(atan, atanf, atan)
+     _DEFINE_MATH_OP(sinh, sinhf, sinh)
+     _DEFINE_MATH_OP(cosh, coshf, cosh)
+     _DEFINE_MATH_OP(tanh, tanhf, tanh)
+     _DEFINE_MATH_OP(asinh, asinhf, asinh)
+     _DEFINE_MATH_OP(acosh, acoshf, acosh)
+     _DEFINE_MATH_OP(atanh, atanhf, atanh)
+     _DEFINE_MATH_OP(exp, expf, exp)
+_DEFINE_MATH_OP(log, logf, log)
+_DEFINE_MATH_OP(log10, log10f, log10)
+_DEFINE_MATH_OP(log2, log2f, log2)
+_DEFINE_MATH_OP(log1p, log1pf, log1p)
+_DEFINE_MATH_OP(sqrt, sqrtf, sqrt)
+_DEFINE_MATH_OP(cbrt, cbrtf, cbrt)
+_DEFINE_MATH_OP(abs, fabsf, fabs)
+
+#define _DEFINE_ARITHMETIC_OP(name, op)                                 \
+  __amm_keep NDArray* amm_ndarray_##name(__amm_take NDArray* out, __amm_keep NDArray* x) { \
+    switch (out->dtype) {                                               \
+    case AMM_DTYPE_F32:                                                 \
+      amm_ndarray_apply_binary(float, float, out[out_i] op x[x_i], out, x); \
+      break;                                                            \
+    case AMM_DTYPE_F64:                                                 \
+      amm_ndarray_apply_binary(double, double, out[out_i] op x[x_i], out, x); \
+      break;                                                            \
+    case AMM_DTYPE_I8:                                                  \
+      amm_ndarray_apply_binary(int8_t, int8_t, out[out_i] op x[x_i], out, x); \
+      break;                                                            \
+    case AMM_DTYPE_I16:                                                 \
+      amm_ndarray_apply_binary(int16_t, int16_t, out[out_i] op x[x_i], out, x); \
+      break;                                                            \
+    case AMM_DTYPE_I32:                                                 \
+      amm_ndarray_apply_binary(int32_t, int32_t, out[out_i] op x[x_i], out, x); \
+      break;                                                            \
+    case AMM_DTYPE_I64:                                                 \
+      amm_ndarray_apply_binary(int64_t, int64_t, out[out_i] op x[x_i], out, x); \
+      break;                                                            \
+    case AMM_DTYPE_U8:                                                  \
+      amm_ndarray_apply_binary(uint8_t, uint8_t, out[out_i] op x[x_i], out, x); \
+      break;                                                            \
+    case AMM_DTYPE_U16:                                                 \
+      amm_ndarray_apply_binary(uint16_t, uint16_t, out[out_i] op x[x_i], out, x); \
+      break;                                                            \
+    case AMM_DTYPE_U32:                                                 \
+      amm_ndarray_apply_binary(uint32_t, uint32_t, out[out_i] op x[x_i], out, x); \
+      break;                                                            \
+    case AMM_DTYPE_U64:                                                 \
+      amm_ndarray_apply_binary(uint64_t, uint64_t, out[out_i] op x[x_i], out, x); \
+      break;                                                            \
+    default:                                                            \
+      fprintf(stderr, "amm_ndarray_" #name ": " #name " does not support %d\n", out->dtype); \
+      return NULL;                                                      \
+    }                                                                   \
+    return out;                                                         \
+  }                                                                     \
+
+
+_DEFINE_ARITHMETIC_OP(add, +=)
+_DEFINE_ARITHMETIC_OP(sub, -=)
+_DEFINE_ARITHMETIC_OP(mul, *=)
+_DEFINE_ARITHMETIC_OP(div, /=)
+_DEFINE_ARITHMETIC_OP(move, =)
+// TODO: maximum, minimum, etc.
+
+__amm_give NDArray* amm_ndarray_ascontiguous(__amm_keep NDArray* arr) {
+  int order = AMM_C_DEFAULT_MEMORY_ORDER; // TODO: Make order configurable
+  // order = 0 -> row-major, 1 -> column-major
+  amm_assert(order == 0 || order == 1, "amm_ndarray_ascontiguous: invalid order %d (must be 0=row-major, 1=column-major)", order);
+  Shape* shape;
+  int* size_tmp = malloc(arr->shape->nrank * sizeof(int));
+  for (int i = 0; i < arr->shape->nrank; ++i) {
+    size_tmp[i] = arr->shape->axes[i]->size;
+  }
+  if (order == 0) {
+    shape = amm_make_row_major_shape(arr->shape->nrank, size_tmp);
+  } else {
+    shape = amm_make_column_major_shape(arr->shape->nrank, size_tmp);
+  }
+  free(size_tmp);
+  NDArray* new_arr = amm_ndarray_zeros(shape, arr->dtype);
+  amm_ndarray_move(new_arr, arr);
+  return new_arr;
 }
 
 __amm_keep NDArray* amm_ndarray_index_components(__amm_take NDArray* arr) {
@@ -390,6 +589,33 @@ __amm_keep NDArray* amm_ndarray_index_components(__amm_take NDArray* arr) {
   return arr;
 }
 
+// TODO: #define DEFINE_REDUCE(name, binary_op, initial_value)
+__amm_give NDArray* amm_ndarray_sum(__amm_take NDArray* arr, int rank) {
+  NDArray* carr = amm_ndarray_ascontiguous(arr);
+  int* reduced_size = malloc(carr->shape->nrank * sizeof(int));
+  int* expand_to = malloc(carr->shape->nrank * sizeof(int));
+  for (int r = 0; r < amm_ndarray_rank(carr); ++r) {
+    if (r == rank) reduced_size[r] = 1;
+    else reduced_size[r] = amm_ndarray_size_of(carr, r);
+    if (r == rank) expand_to[r] = amm_ndarray_size_of(carr, r);
+    else expand_to[r] = 1;
+  }
+  NDArray* out = amm_ndarray_zeros(amm_make_shape(carr->shape->nrank, reduced_size), arr->dtype);
+  amm_ndarray_expand(out, expand_to);
+  amm_ndarray_add(out, carr);
+  amm_ndarray_reshape(out, amm_make_shape(carr->shape->nrank, reduced_size));
+  free(reduced_size);
+  free(expand_to);
+  return out;
+}
+
+__amm_give NDArray* amm_ndarray_matmul_naive(__amm_take NDArray* a, __amm_take NDArray* b) {
+  // TODO
+}
+
+__amm_give NDArray* amm_ndarray_matmul(__amm_take NDArray* a, __amm_take NDArray* b) {
+  // TODO: #if defined(AMM_C_USE_OPENBLAS)
+}
 // ~~ Printers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // recursive print helper
 static void print_rec(const NDArray* arr,
@@ -453,13 +679,29 @@ void print_ndarray(__amm_keep NDArray* arr) {
   }
   int nrank = amm_ndarray_rank(arr);
   int* dims = malloc(nrank * sizeof *dims);
+  int* strides = malloc(nrank * sizeof *dims);
+  
   for (int i = 0; i < nrank; ++i) {
     dims[i] = amm_ndarray_size_of(arr, i);
   }
 
   int* idx = malloc(nrank * sizeof *idx);
+  printf("NDArray{shape=[");
+  for (int i = 0; i < nrank; ++i) {
+    if (i > 0) printf(", ");
+    printf("%d", dims[i]);
+  }
+  printf("], strides=[");
+  for (int i = 0; i < nrank; ++i) {
+    if (i > 0) printf(", ");
+    strides[i] = amm_ndarray_stride_of(arr, i);
+    printf("%d", strides[i]);
+  }
+  printf("], dtype=%d, storage=%p, \n", arr->dtype, arr->storage);
+  printf("  data=");
   print_rec(arr, nrank, dims, arr->dtype, idx, 0);
-  printf("\n");
+  printf("\n}\n");
   free(idx);
   free(dims);
+  free(strides);
 }
