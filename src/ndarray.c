@@ -158,6 +158,25 @@ __amm_give NDArray* amm_ndarray_zeros(Shape* shape, AMM_DType dtype) {
   memset(storage, 0, total_size * amm_dtype_size(dtype));
   return amm_ndarray_alloc(shape, storage, dtype);
 }
+
+#define sample_randn(dtype) (dtype)sqrt(-2.0 * log((dtype)rand() / RAND_MAX)) * cos(2.0 * M_PI * (dtype)rand() / RAND_MAX)
+__amm_give NDArray* amm_ndarray_randn(Shape* shape, AMM_DType dtype) {
+  NDArray* arr = amm_ndarray_zeros(shape, dtype);
+  amm_assert(arr, "amm_ndarray_randn: failed to alloc NDArray");
+  switch (dtype) {
+  case AMM_DTYPE_F32:
+    amm_ndarray_apply_unary(float, x[x_i] = sample_randn(float), arr);
+    break;
+  case AMM_DTYPE_F64:
+    amm_ndarray_apply_unary(double, x[x_i] = sample_randn(double), arr);
+    break;
+  default:
+    fprintf(stderr, "amm_ndarray_randn: unsupported dtype %d\n", dtype);
+    amm_ndarray_free(arr);
+    return NULL;
+  }
+  return arr;
+}
 // ~~~ Accessors ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 int amm_ndarray_rank(__amm_keep const NDArray* arr) {
   return arr ? arr->shape->nrank : 0;
@@ -228,15 +247,28 @@ __amm_keep NDArray* amm_ndarray_permute(__amm_take NDArray* arr, ...) {
     fprintf(stderr, "amm_ndarray_permute: failed to alloc new_axes\n");
     return NULL;
   }
-  for (int i = 0; i < nrank; ++i) {
-    int p = perm[i];
-    amm_assert(p >= 0 && p < nrank, "amm_ndarray_permute: invalid perm[%d]=%d", i, p);
-    new_axes[i] = old_axes[p];
-  }
+  for (int i = 0; i < nrank; ++i) new_axes[i] = old_axes[perm[i]];
   // replace axes array and free old
   arr->shape->axes = new_axes;
   free(old_axes);
   free(perm);
+  return arr;
+}
+
+__amm_keep NDArray* amm_ndarray_expand(__amm_take NDArray* arr, const int* expand) {
+  // TODO: Broadcast shapes among arr->shape and expand.
+  // Note: we assume arr->nrank and the length of expand are the same.
+  amm_assert(arr->shape->is_contiguous, "amm_ndarray_expand: only works for contiguous arrays");
+  for (int i=0; i<amm_ndarray_rank(arr); i++) {
+    int size = amm_ndarray_size_of(arr, i);
+    int expand_to = expand[i];
+    if (expand_to == 1) continue; // No need to expand
+    amm_assert(size == 1, "amm_ndarray_expand: the size expanded to %d must be one.", expand_to);
+    arr->shape->is_contiguous = false; // We are going to change the stride
+    // Broadcast array into expand.
+    arr->shape->axes[i]->size = expand_to;
+    arr->shape->axes[i]->stride = 0;
+  }
   return arr;
 }
 // ~~ Shape Solver ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
