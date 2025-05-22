@@ -208,9 +208,7 @@ void test_ndarray_slice_5() {
   amm_ndarray_free(arr);
   printf("Passed: test_ndarray_slice_5\n");
 }
-
-
-// TODO: by testing w/ 3d array
+// TODO: Complicated View Testing w/ 3D Array (which ensures the validity of shape simplifier)
 
 int main(void) {
   test_ndarray_creation();

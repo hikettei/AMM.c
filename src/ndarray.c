@@ -538,6 +538,26 @@ _DEFINE_ARITHMETIC_OP(add, +=)
 _DEFINE_ARITHMETIC_OP(sub, -=)
 _DEFINE_ARITHMETIC_OP(mul, *=)
 _DEFINE_ARITHMETIC_OP(div, /=)
+_DEFINE_ARITHMETIC_OP(move, =)
+
+__amm_give NDArray* amm_ndarray_ascontiguous(__amm_keep NDArray* arr, int order) {
+  // order = 0 -> row-major, 1 -> column-major
+  amm_assert(order == 0 || order == 1, "amm_ndarray_ascontiguous: invalid order %d (must be 0=row-major, 1=column-major)", order);
+  Shape* shape;
+  int* size_tmp = malloc(arr->shape->nrank * sizeof(int));
+  for (int i = 0; i < arr->shape->nrank; ++i) {
+    size_tmp[i] = arr->shape->axes[i]->size;
+  }
+  if (order == 0) {
+    shape = amm_make_row_major_shape(arr->shape->nrank, size_tmp);
+  } else {
+    shape = amm_make_column_major_shape(arr->shape->nrank, size_tmp);
+  }
+  free(size_tmp);
+  NDArray* new_arr = amm_ndarray_zeros(shape, arr->dtype);
+  amm_ndarray_move(new_arr, arr);
+  return new_arr;
+}
 
 __amm_keep NDArray* amm_ndarray_index_components(__amm_take NDArray* arr) {
   amm_ndarray_apply_unary(float, x[x_i] = x_i, arr);

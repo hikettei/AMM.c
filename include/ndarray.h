@@ -167,6 +167,9 @@ __amm_keep NDArray* amm_ndarray_add(__amm_take NDArray* out, __amm_keep NDArray*
 __amm_keep NDArray* amm_ndarray_sub(__amm_take NDArray* out, __amm_keep NDArray* x);
 __amm_keep NDArray* amm_ndarray_mul(__amm_take NDArray* out, __amm_keep NDArray* x);
 __amm_keep NDArray* amm_ndarray_div(__amm_take NDArray* out, __amm_keep NDArray* x);
+__amm_keep NDArray* amm_ndarray_move(__amm_take NDArray* out, __amm_keep NDArray* x);
+
+__amm_give NDArray* amm_ndarray_ascontiguous(__amm_keep NDArray* arr, int order);
 // TODO:
 // - ndarray_cast
 // - ndarray_arange
