@@ -14,6 +14,9 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
 // ~~ Alloc/Free ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 OriginalMaddnessGemm *amm_original_maddness_gemm_alloc(int N, int M, int K, int LDX, int C, int n_cluster, int nsplits, AMM_DType dtype) {
   struct OriginalMaddnessGemm *mgemm = malloc(sizeof *mgemm);
@@ -187,7 +190,27 @@ void compute_optimal_val_splits(float* threshold, float* loss, NDArray* A_offlin
   amm_ndarray_add(x_head, x_tail);
   NDArray* s_out = amm_ndarray_sum(x_head, 1);
   amm_ndarray_free(x_head); amm_ndarray_free(x_tail);
-  
+
+  int N1 = amm_ndarray_size_of(s_out, 0);
+  NDArray* s_out_i = amm_ndarray_zeros(amm_make_shape(1, (int[]){N1}), AMM_DTYPE_I32);
+  argsort((float*)s_out->storage, N1, (int*)s_out_i->storage);
+  amm_ndarray_apply_unary(int, x[x_i] = N1 - x[x_i], s_out_i);
+  int best_idx = ((int*)s_out_i->storage)[0];
+  int next_idx = MIN(1+best_idx, amm_ndarray_size_of(A_offline, 0) - 1);
+
+  int col_idx1 = ((int*)x_sort_indices->storage)[best_idx];
+  int col_idx2 = ((int*)x_sort_indices->storage)[next_idx];
+
+  float val1 = amm_ndarray_aref(float, A_offline, col_idx1, dim);
+  float val2 = amm_ndarray_aref(float, A_offline, col_idx2, dim);
+
+  threshold[0] = (val1 + val2) / 2;
+  loss[0] = amm_ndarray_aref(float, s_out, best_idx);
+  printf("threshold:%f loss:%f\n", threshold[0], loss[0]);
+
+  //amm_ndarray_free(x_sort_indices);
+  //amm_ndarray_free(x_sort_indices_rev);
+  //  amm_ndarray_free(s_out);
 }
 
 int optimal_val_splits(NDArray* A_offline, Bucket* bucket, NDArray* total_losses, int d, int dim, int tree_level) {
