@@ -220,14 +220,16 @@ void compute_optimal_val_splits(float* threshold, float* loss, NDArray* A_offlin
 
   threshold[0] = (val1 + val2) / 2;
   loss[0] = amm_ndarray_aref(float, s_out, best_idx);
-  
-  amm_ndarray_free(x_head); amm_ndarray_free(x_tail);
-  amm_ndarray_free(a_offline_r3);
-  amm_ndarray_free(a_offline_r2);
-  amm_ndarray_free(a_offline_r);
-  amm_ndarray_free(s_out);
-  amm_ndarray_free(x_sort_indices);
-  amm_ndarray_free(x_sort_indices_rev); 
+
+  /*
+    amm_ndarray_free(x_head); amm_ndarray_free(x_tail);
+    amm_ndarray_free(a_offline_r3);
+    amm_ndarray_free(a_offline_r2);
+    amm_ndarray_free(a_offline_r);
+    amm_ndarray_free(s_out);
+    amm_ndarray_free(x_sort_indices);
+    amm_ndarray_free(x_sort_indices_rev);
+  */
 }
 
 int optimal_val_splits(NDArray* A_offline, Bucket* bucket, NDArray* total_losses, int d, int dim, int tree_level) {
@@ -283,7 +285,13 @@ NDArray* tflist_as_index_list(NDArray* arr) {
   int* tflist = (int*)arr->storage;
   int required_size = 0;
   for (int i=0; i<size; i++) required_size += (tflist[i] == 1 ? 1 : 0);
-  amm_assert(required_size > 0, "cannot create an array whose size is zero");
+
+  if (required_size == 0) {
+    NDArray* ret = amm_ndarray_zeros(amm_make_shape(1, (int[]){size}), AMM_DTYPE_I32);
+    amm_ndarray_index_components(ret);
+    return ret;
+  }
+  
   int* index_list = malloc(required_size * sizeof(int));
   int c = 0;
   for (int i=0; i<size; i++)
@@ -326,7 +334,6 @@ void optimize_bucket_splits(Bucket* bucket, int best_dim, NDArray* A_offline) {
     bucket->left_child = create_new_bucket(left_side_points, bucket->tree_level+1, left_idx);
     bucket->right_child = create_new_bucket(right_side_points, bucket->tree_level+1, right_idx);
   } else {
-    printf("B\n");
     bucket->left_child->n_indices = amm_ndarray_size_of(left_side_points, 0);
     bucket->left_child->indices = left_side_points->storage;
     
@@ -358,6 +365,7 @@ B(3, 1)  B(3, 2)   B(3, 3)  B(3, 4)    | nth=2
   NDArray* col_losses_i = amm_ndarray_zeros(amm_make_shape(1, (int[]){steps}), AMM_DTYPE_I32);
   NDArray* total_losses = amm_ndarray_zeros(amm_make_shape(2, (int[]){1, steps}), AMM_DTYPE_F32);
   for (int nth_split=0; nth_split < nsplits; nth_split++) {
+    printf("C\n");
     amm_ndarray_apply_unary(float, x[x_i] = 0.0f, col_losses); // TODO: Implement amm_ndarray_fill
     sumup_col_sum_sqs(col_losses, bucket, A_offline);
     argsort((float*)col_losses->storage, steps, (int*)col_losses_i->storage); // col_losses_i <- argosrt(col_losses)
@@ -375,7 +383,10 @@ B(3, 1)  B(3, 2)   B(3, 3)  B(3, 4)    | nth=2
 
     optimize_split_thresholds(bucket, min_idx, best_dim, nth_split, A_offline);
     optimize_bucket_splits(bucket, best_dim, A_offline);
+    
+    printf("loop_finished\n");
   }
+  
   amm_ndarray_free(col_losses_i); amm_ndarray_free(total_losses);
 }
 
