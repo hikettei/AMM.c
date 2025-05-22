@@ -11,6 +11,7 @@
 #include <math.h>
 #include <string.h>
 
+#define AMM_C_DEFAULT_MEMORY_ORDER 0
 /*
   ndarray.c:
     - dependency free ndarray library which aimed to smallness (NOT SPEED!). If it is fairy fast, it is ok.
@@ -277,7 +278,7 @@ __amm_keep NDArray* amm_ndarray_view_index(__amm_take NDArray* arr, int rank, in
   amm_assert(rank <= arr->shape->nrank && rank >= 0, "amm_ndarray_view_index: invalid rank %d", rank);
   Axis* axis = arr->shape->axes[rank];
   amm_assert(axis->random_access_idx == NULL, "amm_ndarray_view_index: random_access(random_access(x)) view merge is not implemented yet.");
-  axis->random_access_idx = indices;
+  axis->random_access_idx = (void*)indices;
   axis->size = new_size;
   // TODO(hikettei): how to design the indices memory management? is there no double free?
   return arr;
@@ -552,7 +553,8 @@ _DEFINE_ARITHMETIC_OP(mul, *=)
 _DEFINE_ARITHMETIC_OP(div, /=)
 _DEFINE_ARITHMETIC_OP(move, =)
 
-__amm_give NDArray* amm_ndarray_ascontiguous(__amm_keep NDArray* arr, int order) {
+__amm_give NDArray* amm_ndarray_ascontiguous(__amm_keep NDArray* arr) {
+  int order = AMM_C_DEFAULT_MEMORY_ORDER; // TODO: Make order configurable
   // order = 0 -> row-major, 1 -> column-major
   amm_assert(order == 0 || order == 1, "amm_ndarray_ascontiguous: invalid order %d (must be 0=row-major, 1=column-major)", order);
   Shape* shape;
@@ -574,6 +576,10 @@ __amm_give NDArray* amm_ndarray_ascontiguous(__amm_keep NDArray* arr, int order)
 __amm_keep NDArray* amm_ndarray_index_components(__amm_take NDArray* arr) {
   amm_ndarray_apply_unary(float, x[x_i] = x_i, arr);
   return arr;
+}
+
+__amm_give NDArray* amm_ndarray_sum(__amm_take NDArray* arr, int rank) {
+  NDArray* carr = amm_ndarray_ascontiguous(arr);
 }
 // ~~ Printers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // recursive print helper
