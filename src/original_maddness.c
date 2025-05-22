@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 // ~~ Alloc/Free ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 OriginalMaddnessGemm *amm_original_maddness_gemm_alloc(int N, int M, int K, int LDX, int C, int n_cluster, int nsplits, AMM_DType dtype) {
   struct OriginalMaddnessGemm *mgemm = malloc(sizeof *mgemm);
@@ -121,6 +122,42 @@ __amm_give NDArray* ndarray_reverse(__amm_keep NDArray* x) {
   return x2;
 }
 
+float *cumulative_sse(NDArray* xp, NDArray* cumsses) {
+  int N = amm_ndarray_size_of(xp, 0);
+  int D = amm_ndarray_size_of(xp, 1);
+  
+  float *cumX  = calloc(D, sizeof(float));
+  float *cumX2 = calloc(D, sizeof(float));
+  if (!cumX || !cumX2) {
+    free(cumX); free(cumX2);
+    return NULL;
+  }
+
+  float *x = malloc(sizeof(float) * N * D);
+  if (!x) {
+    free(cumX); free(cumX2);
+    return NULL;
+  }
+  memcpy(x, (float*)xp->storage, sizeof(float) * N * D);
+  memcpy(cumX, x, sizeof(float) * D);
+  for (int j = 0; j < D; ++j) cumX2[j] = cumX[j] * cumX[j];
+  for (int i = 0; i < N; ++i) {
+    float *x_row = x + (size_t)i * D;
+    float  lr    = 1.0 / (2.0 + i);
+    for (int j = 0; j < D; ++j) {
+      cumX[j]  += x_row[j];
+      cumX2[j] += x_row[j];
+    }
+    for (int j = 0; j < D; ++j) {
+      float meanX = cumX[j] * lr;
+      float mx    = meanX * cumX[j];
+      mx           = -mx;
+      ((float*)cumsses->storage)[(size_t)i * D + j] = cumX2[j] + mx;
+    }
+  }
+  free(cumX); free(cumX2); free(x);
+}
+
 void compute_optimal_val_splits(float* threshold, float* loss, NDArray* A_offline, Bucket* bucket, int dim) {
   if (bucket->indices == NULL || bucket->n_indices < 2) {
     threshold[0] = 0.0, loss[0] = 0.0;
@@ -133,9 +170,25 @@ void compute_optimal_val_splits(float* threshold, float* loss, NDArray* A_offlin
   amm_ndarray_free(a_offline_r);
   NDArray* x_sort_indices = sort_rows_based_on_col(a_offline_r1, dim);
   NDArray* x_sort_indices_rev = ndarray_reverse(x_sort_indices);
+  int N = amm_ndarray_size_of(x_sort_indices, 0);
+  int D = amm_ndarray_size_of(A_offline, 1);
+  // tmp
+  NDArray* x_head = amm_ndarray_zeros(amm_make_shape(2, (int[]){N, D}), A_offline->dtype);
+  NDArray* x_tail = amm_ndarray_zeros(amm_make_shape(2, (int[]){N, D}), A_offline->dtype);
   
-  print_ndarray(x_sort_indices);
-  print_ndarray(x_sort_indices_rev);
+  amm_ndarray_view_index(a_offline_r1, 0, N, (int*)x_sort_indices->storage);
+  NDArray* a_offline_r2 = amm_ndarray_ascontiguous(a_offline_r1);
+  cumulative_sse(a_offline_r2, x_head);
+  amm_ndarray_free(a_offline_r2);
+  amm_ndarray_view_index(a_offline_r1, 0, N, (int*)x_sort_indices_rev->storage);
+  NDArray* a_offline_r3 = amm_ndarray_ascontiguous(a_offline_r1);
+  cumulative_sse(a_offline_r3, x_tail);
+  amm_ndarray_free(a_offline_r3);
+
+  print_ndarray(x_head);
+  print_ndarray(x_tail);
+  
+  
 }
 
 int optimal_val_splits(NDArray* A_offline, Bucket* bucket, NDArray* total_losses, int d, int dim, int tree_level) {
