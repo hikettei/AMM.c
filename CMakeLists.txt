@@ -16,7 +16,7 @@ option(AMM_C_CUDA   "amm.c: Use CUDA"  OFF)
 set(AMM_C_SOURCES
     src/ndarray.c
     src/argsort.c
-#    src/original_maddness.c
+    src/original_maddness.c
     )
 add_library(${AMM_C_TARGET} SHARED ${AMM_C_SOURCES})
 target_include_directories(${AMM_C_TARGET} PRIVATE ./include/kernels ./include)
