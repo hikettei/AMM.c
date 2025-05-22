@@ -402,7 +402,6 @@ _DEFINE_MATH_OP(sqrt, sqrtf, sqrt)
 _DEFINE_MATH_OP(cbrt, cbrtf, cbrt)
 _DEFINE_MATH_OP(abs, fabsf, fabs)
 
-
 #define _DEFINE_ARITHMETIC_OP(name, op)                                 \
   __amm_keep NDArray* amm_ndarray_##name(__amm_take NDArray* out, __amm_keep NDArray* x) { \
     switch (out->dtype) {                                               \
@@ -521,8 +520,14 @@ void print_ndarray(__amm_keep NDArray* arr) {
   }
 
   int* idx = malloc(nrank * sizeof *idx);
+  printf("NDArray(shape=[");
+  for (int i = 0; i < nrank; ++i) {
+    if (i > 0) printf(", ");
+    printf("%d", dims[i]);
+  }
+  printf("], dtype=%d, storage=%p, \n", arr->dtype, arr->storage);
   print_rec(arr, nrank, dims, arr->dtype, idx, 0);
-  printf("\n");
+  printf(")\n");
   free(idx);
   free(dims);
 }
