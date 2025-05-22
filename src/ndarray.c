@@ -290,15 +290,23 @@ __amm_keep NDArray* amm_ndarray_expand(__amm_take NDArray* arr, const int* expan
 
 __amm_keep NDArray* amm_ndarray_slice(__amm_take NDArray* arr, int rank, int from, int to, int by) {
   amm_assert(rank >= 0 && rank < amm_ndarray_rank(arr), "amm_ndarray_slice: invalid rank %d", rank);
+  // normalize args
+  if (from < 0) from = amm_ndarray_size_of(arr, rank) + from;
+  if (to < 0) to = amm_ndarray_size_of(arr, rank) + to;
+  if (by < 0) { int tmp=to; to=from; from=tmp; by=-by; }
+  if (from > to) by = -by;
+  
   if (by > 0) amm_assert(from < to, "amm_ndarray_slice: invalid range %d:%d", from, to);
   else amm_assert(from > to, "amm_ndarray_slice: invalid range %d:%d", from, to);
-
+  
   Axis* axis = arr->shape->axes[rank];
   amm_assert(axis->random_access_idx == NULL, "amm_ndarray_slice: random_access(random_access(x)) view merge is not implemented yet.");
   
   axis->size = (to - from) / by;
   axis->by = by;
   axis->offset = from;
+  
+  amm_assert(axis->size > 0, "amm_ndarray_slice: invalid shape %d", axis->size);
   return arr;
 }
 // ~~ Shape Solver ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
