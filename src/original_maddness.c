@@ -77,6 +77,8 @@ void amm_bucket_threshold_candidate_push(Bucket* bucket, float c) {
 
 void amm_bucket_free(Bucket* bucket) {
   if (bucket != NULL) {
+    if (bucket->left_child) amm_bucket_free(bucket->left_child);
+    if (bucket->right_child) amm_bucket_free(bucket->right_child);
     free(bucket->threshold_candidates);
     free(bucket->indices);
     free(bucket);
@@ -276,6 +278,65 @@ void optimize_split_thresholds(Bucket* bucket, int min_idx, int best_dim, int nt
   }
 }
 
+NDArray* tflist_as_index_list(NDArray* arr) {
+  int size = amm_ndarray_size_of(arr, 0);
+  int* tflist = (int*)arr->storage;
+  int required_size = 0;
+  for (int i=0; i<size; i++) required_size += tflist[i] == 1 ? 1 : 0;
+  int* index_list = malloc(sizeof(int) * required_size);
+  int c = 0;
+  for (int i=0; i<required_size; i++)
+    if (tflist[i] == 1.0) {
+      index_list[c] = i;
+      c++;
+    }
+  return amm_ndarray_alloc(amm_make_shape(1, (int[]){required_size}), index_list, AMM_DTYPE_I32);
+}
+
+Bucket* create_new_bucket(NDArray* points, int lv, int idx) {
+  Bucket* new_bucket = amm_bucket_alloc();
+  new_bucket->indices = points->storage;
+  new_bucket->n_indices = amm_ndarray_size_of(points, 0);
+  new_bucket->tree_level = lv;
+  new_bucket->id = idx;
+  return new_bucket;
+}
+
+void optimize_bucket_splits(Bucket* bucket, int best_dim, NDArray* A_offline) {
+  int right_idx = bucket->id * 2 + 1;
+  int left_idx = bucket->id * 2;
+  NDArray* A_offline_cp = amm_ndarray_ascontiguous(A_offline);
+  amm_ndarray_view_index(A_offline_cp, 0, bucket->n_indices, bucket->indices);
+  amm_ndarray_slice(A_offline_cp, 1, best_dim, best_dim, 1);
+  float threshold = bucket->threshold;
+
+  int mask_size[1] = {bucket->n_indices};
+  NDArray* left_mask = amm_ndarray_zeros(amm_make_shape(1, mask_size), AMM_DTYPE_I8);
+  NDArray* right_mask = amm_ndarray_zeros(amm_make_shape(1, mask_size), AMM_DTYPE_I8);
+
+  amm_ndarray_apply_binary(int, float, out[out_i] = x[x_i] > threshold ? 1 : 0, left_mask, A_offline_cp);
+  amm_ndarray_apply_binary(int, float, out[out_i] = x[x_i] > threshold ? 0 : 1, right_mask, A_offline_cp);
+
+  NDArray* left_side_points = tflist_as_index_list(left_mask);
+  NDArray* right_side_points = tflist_as_index_list(right_mask);
+  amm_ndarray_free(A_offline_cp);
+  // Mwmo: sum(left_mask) == 0.0 case is really required?
+  if (bucket->left_child == NULL && bucket->right_child == NULL) {
+    bucket->left_child = create_new_bucket(left_side_points, bucket->tree_level+1, left_idx);
+    bucket->right_child = create_new_bucket(right_side_points, bucket->tree_level+1, right_idx);
+  } else {
+    bucket->left_child->n_indices = amm_ndarray_size_of(left_side_points, 0);
+    bucket->left_child->indices = left_side_points->storage;
+    
+    bucket->right_child->n_indices = amm_ndarray_size_of(right_side_points, 0);
+    bucket->right_child->indices = right_side_points->storage;
+    
+    optimize_bucket_splits(bucket->left_child, best_dim, A_offline);
+    optimize_bucket_splits(bucket->right_child, best_dim, A_offline);
+  }
+  // amm_ndarray_free(left_side_points); amm_ndarray_free(right_side_points);
+}
+
 void learn_binary_tree_splits(NDArray* A_offline, NDArray* col_losses, int col_i, int steps, int nsplits) {
   /*
     
@@ -311,7 +372,7 @@ B(3, 1)  B(3, 2)   B(3, 3)  B(3, 4)    | nth=2
     int best_dim = ((int*)col_losses_i->storage)[min_idx];
 
     optimize_split_thresholds(bucket, min_idx, best_dim, nth_split, A_offline);
-    
+    optimize_bucket_splits(bucket, best_dim, A_offline);
   }
   amm_ndarray_free(col_losses_i); amm_ndarray_free(total_losses);
 }
