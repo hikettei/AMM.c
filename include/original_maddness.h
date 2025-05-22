@@ -30,6 +30,7 @@ struct Bucket {
   int threshold_quantized;
   int index;
   float threshold;
+  int threshold_candidates_count;
   void* threshold_candidates;
   Bucket* left_child; Bucket* right_child;
   void* indices;

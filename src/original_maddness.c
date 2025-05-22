@@ -53,11 +53,26 @@ Bucket *amm_bucket_alloc() {
   bucket->threshold_quantized = 0;
   bucket->index = 0;
   bucket->threshold = 0.0f;
+  bucket->threshold_candidates_count = 0;
   bucket->threshold_candidates = NULL;
   bucket->left_child = NULL; bucket->right_child=NULL;
   bucket->indices = NULL;
   bucket->n_indices = 0;
   return bucket;
+}
+
+void amm_bucket_threshold_candidate_push(Bucket* bucket, float c) {
+  if (bucket->threshold_candidates_count == 0) {
+    bucket->threshold_candidates = malloc(sizeof(float));
+  } else {
+    bucket->threshold_candidates = realloc(bucket->threshold_candidates, (bucket->threshold_candidates_count + 1) * sizeof(float));
+  }
+  if (bucket->threshold_candidates == NULL) {
+    fprintf(stderr, "Failed to allocate memory for threshold candidates\n");
+    return;
+  }
+  ((float*)bucket->threshold_candidates)[bucket->threshold_candidates_count] = c;
+  bucket->threshold_candidates_count++;              
 }
 
 void amm_bucket_free(Bucket* bucket) {
@@ -222,9 +237,7 @@ int optimal_val_splits(NDArray* A_offline, Bucket* bucket, NDArray* total_losses
     free(threshold); free(loss);
     amm_ndarray_aref(float, total_losses, 0, d) += loss_;
     float curr_loss = amm_ndarray_aref(float, total_losses, 0, d);
-
-    // TODO: push threshold to bucket_threshold_candidates
-    
+    amm_bucket_threshold_candidate_push(bucket, threshold_);
     if (d == 0) { // TODO: Introduce early judge?
       return 0;
     } else {
@@ -240,6 +253,21 @@ int optimal_val_splits(NDArray* A_offline, Bucket* bucket, NDArray* total_losses
     int res2 = optimal_val_splits(A_offline, right, total_losses, d, dim, tree_level);
     int res3 = optimal_val_splits(A_offline, bucket, total_losses, d, dim, bucket->tree_level); // Compute current-level node.
     return res1 || res2 || res3;
+  }
+}
+
+void optimize_split_thresholds(Bucket* bucket, int min_idx, int best_dim, int nth_split, NDArray* A_offline) {
+  if (bucket->tree_level == nth_split) {
+    bucket->index = best_dim;
+    bucket->threshold = ((float*)bucket->threshold_candidates)[min_idx];
+    // TODO: LEARN QUANTIZED PARAMS
+  }
+
+  Bucket* left = bucket->left_child;
+  Bucket* right = bucket->right_child;
+  if (left && right) {
+    optimize_split_thresholds(left, min_idx, best_dim, nth_split, A_offline);
+    optimize_split_thresholds(right, min_idx, best_dim, nth_split, A_offline);
   }
 }
 
@@ -277,6 +305,8 @@ B(3, 1)  B(3, 2)   B(3, 3)  B(3, 4)    | nth=2
     for (int i=0; i<steps; i++) if (((float*)total_losses->storage)[i] == min_tmp) min_idx = i;
     int best_dim = ((int*)col_losses_i->storage)[min_idx];
 
+    optimize_split_thresholds(bucket, min_idx, best_dim, nth_split, A_offline);
+    
   }
   amm_ndarray_free(col_losses_i); amm_ndarray_free(total_losses);
 }
