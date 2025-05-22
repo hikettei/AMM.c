@@ -21,6 +21,14 @@ int amm_axis_compute_index_on_memory(Axis* axis, int position) {
   }
 }
 
+int amm_shape_compute_index_on_memory(Shape* shape, ...) {
+  va_list args;
+  va_start(args, shape);
+  int index = 0;
+  for (int i = 0; i < shape->nrank; ++i) index += amm_axis_compute_index_on_memory(shape->axes[i], va_arg(args, int));
+  va_end(args);
+  return index;
+}
 /*
   ShapeTracker Initialization
 */

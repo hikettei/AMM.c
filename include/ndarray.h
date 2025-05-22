@@ -1,5 +1,6 @@
 #include "amm_dtype.h"
 #include <stdbool.h>
+#include <stdarg.h>
 #include "utils.h"
 #pragma once
 
@@ -37,6 +38,8 @@ struct Shape {
   bool is_contiguous;
 };
 
+int amm_shape_compute_index_on_memory(Shape* shape, ...);
+
 typedef struct NDArray NDArray;
 struct NDArray {
   Shape* shape;
@@ -66,6 +69,7 @@ int amm_ndarray_size_of(__amm_keep const NDArray* arr, int dim);
 int amm_ndarray_stride_of(__amm_keep const NDArray* arr, int dim);
 int amm_ndarray_total_size(__amm_keep const NDArray* arr);
 bool amm_ndarray_is_contiguous(__amm_keep const NDArray* arr);
+#define amm_ndarray_aref(dtype, arr, ...) ((dtype*)arr->storage)[amm_shape_compute_index_on_memory(arr->shape, __VA_ARGS__)]
 // ~~~ Initializers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 __amm_give NDArray* amm_ndarray_zeros(Shape* shape, AMM_DType dtype);
 __amm_give NDArray* amm_ndarray_randn(Shape* shape, AMM_DType dtype);
