@@ -217,8 +217,8 @@ void compute_optimal_val_splits(float* threshold, float* loss, NDArray* A_offlin
 
   amm_assert(best_idx >= 0 && best_idx <= amm_ndarray_size_of(x_sort_indices, 0)-1, "compute_optimal_val_splits: wrong best_idx? %d", best_idx);
   amm_assert(next_idx >= 0 && next_idx <= amm_ndarray_size_of(x_sort_indices, 0)-1, "compute_optimal_val_splits: wrong next_idx? %d", next_idx);
-  int col_idx1 = ((int*)x_sort_indices->storage)[best_idx];
-  int col_idx2 = ((int*)x_sort_indices->storage)[next_idx];
+  int col_idx1 = amm_ndarray_aref(int, x_sort_indices, best_idx);
+  int col_idx2 = amm_ndarray_aref(int, x_sort_indices, next_idx);
   amm_assert(col_idx1 >= 0 && col_idx1 <= amm_ndarray_size_of(a_offline_r, 0)-1, "compute_optimal_val_splits: wrong col_idx1? %d", col_idx1);
   amm_assert(col_idx2 >= 0 && col_idx2 <= amm_ndarray_size_of(a_offline_r, 0)-1, "compute_optimal_val_splits: wrong col_idx12 %d", col_idx2);
 
