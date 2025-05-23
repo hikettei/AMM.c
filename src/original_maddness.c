@@ -219,10 +219,9 @@ void compute_optimal_val_splits(float* threshold, float* loss, NDArray* A_offlin
   amm_assert(next_idx >= 0 && next_idx <= amm_ndarray_size_of(x_sort_indices, 0)-1, "compute_optimal_val_splits: wrong next_idx? %d", next_idx);
   int col_idx1 = ((int*)x_sort_indices->storage)[best_idx];
   int col_idx2 = ((int*)x_sort_indices->storage)[next_idx];
-  amm_assert(col_idx1 >= 0 && col_idx1 <= amm_ndarray_size_of(a_offline_r, 0), "compute_optimal_val_splits: wrong col_idx1? %d", col_idx1);
-  amm_assert(col_idx2 >= 0 && col_idx2 <= amm_ndarray_size_of(a_offline_r, 0), "compute_optimal_val_splits: wrong col_idx12 %d", col_idx2);
-  printf("%d, %d, dim=%d \n", col_idx1, col_idx2, dim);
-  print_ndarray(a_offline_r);
+  amm_assert(col_idx1 >= 0 && col_idx1 <= amm_ndarray_size_of(a_offline_r, 0)-1, "compute_optimal_val_splits: wrong col_idx1? %d", col_idx1);
+  amm_assert(col_idx2 >= 0 && col_idx2 <= amm_ndarray_size_of(a_offline_r, 0)-1, "compute_optimal_val_splits: wrong col_idx12 %d", col_idx2);
+
   float val1 = amm_ndarray_aref(float, a_offline_r, col_idx1, dim);
   float val2 = amm_ndarray_aref(float, a_offline_r, col_idx2, dim);
 
