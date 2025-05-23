@@ -191,6 +191,7 @@ void compute_optimal_val_splits(float* threshold, float* loss, NDArray* A_offlin
   
   NDArray* x_sort_indices = sort_rows_based_on_col(a_offline_r1, dim);
   NDArray* x_sort_indices_rev = ndarray_reverse(x_sort_indices);
+  
   int N = amm_ndarray_size_of(x_sort_indices, 0);
   int D = amm_ndarray_size_of(A_offline, 1);
   // tmp
@@ -209,12 +210,19 @@ void compute_optimal_val_splits(float* threshold, float* loss, NDArray* A_offlin
   int N1 = amm_ndarray_size_of(s_out, 0);
   NDArray* s_out_i = amm_ndarray_zeros(amm_make_shape(1, (int[]){N1}), AMM_DTYPE_I32);
   argsort((float*)s_out->storage, N1, (int*)s_out_i->storage);
+  
   amm_ndarray_apply_unary(int, x[x_i] = (N1-1) - x[x_i], s_out_i);
   int best_idx = ((int*)s_out_i->storage)[0];
   int next_idx = MIN(1+best_idx, amm_ndarray_size_of(A_offline, 0) - 1);
 
+  amm_assert(best_idx >= 0 && best_idx <= amm_ndarray_size_of(x_sort_indices, 0)-1, "compute_optimal_val_splits: wrong best_idx? %d", best_idx);
+  amm_assert(next_idx >= 0 && next_idx <= amm_ndarray_size_of(x_sort_indices, 0)-1, "compute_optimal_val_splits: wrong next_idx? %d", next_idx);
   int col_idx1 = ((int*)x_sort_indices->storage)[best_idx];
-  int col_idx2 = ((int*)x_sort_indices->storage)[next_idx];  
+  int col_idx2 = ((int*)x_sort_indices->storage)[next_idx];
+  amm_assert(col_idx1 >= 0 && col_idx1 <= amm_ndarray_size_of(a_offline_r, 0), "compute_optimal_val_splits: wrong col_idx1? %d", col_idx1);
+  amm_assert(col_idx2 >= 0 && col_idx2 <= amm_ndarray_size_of(a_offline_r, 0), "compute_optimal_val_splits: wrong col_idx12 %d", col_idx2);
+  printf("%d, %d, dim=%d \n", col_idx1, col_idx2, dim);
+  print_ndarray(a_offline_r);
   float val1 = amm_ndarray_aref(float, a_offline_r, col_idx1, dim);
   float val2 = amm_ndarray_aref(float, a_offline_r, col_idx2, dim);
 
@@ -234,7 +242,7 @@ int optimal_val_splits(NDArray* A_offline, Bucket* bucket, NDArray* total_losses
   if (bucket->tree_level == tree_level) {
     float* threshold = malloc(sizeof(float));
     float* loss = malloc(sizeof(float));
-    compute_optimal_val_splits(threshold, loss, A_offline, bucket, dim);
+    compute_optimal_val_splits(threshold, loss, A_offline, bucket, dim); // slow
     float threshold_ = threshold[0], loss_ = loss[0];
     free(threshold); free(loss);
     amm_ndarray_aref(float, total_losses, 0, d) += loss_;
