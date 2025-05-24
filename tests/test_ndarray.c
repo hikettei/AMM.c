@@ -238,13 +238,14 @@ void test_slice_fail_case() {
   amm_ndarray_apply_unary(float, x[x_i] = 1.0f, arr1);
   amm_ndarray_reshape(arr1, amm_make_row_major_shape(3, (int[]){1, 1, 5}));
   for (int i=0; i<5; i++) {
-    amm_ndarray_slice(arr, 0, i, i, 1);
-    amm_ndarray_slice(arr, 1, i, i, 1);
-    amm_ndarray_move(arr, arr1);
+    for (int j=0; j<5; j++) {
+      amm_ndarray_slice(arr, 0, i, i, 1);
+      amm_ndarray_slice(arr, 1, j, j, 1);
+      amm_ndarray_move(arr, arr1);
+    }
   }
   amm_ndarray_slice(arr, 0, 0, 4, 1);
   amm_ndarray_slice(arr, 1, 0, 4, 1);
-  print_ndarray(arr);
   for (int i=0; i<5*5*5; i++)
     amm_assert(((float*)arr->storage)[i] == 1.0f, "Invalid value at (%d): expected %f", i, ((float*)arr->storage)[i]);
   printf("Passed: test_slice_fail_case\n");
