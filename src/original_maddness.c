@@ -433,10 +433,10 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
     // Reading A_offline [T, 0:4], A_offline[T, 4:8], A_offline[T, 8:12], ..., A_offline[T, col_i:col_i+4] ...
     // as well as prototype
     amm_ndarray_slice(A_offline, 1, col_i, col_i+steps-1, 1);
-    amm_ndarray_slice(gemm->protos, 2, col_i, col_i+steps-1, 1);
     gemm->buckets[nth] = learn_binary_tree_splits(A_offline, col_losses, col_i, steps, gemm->nsplits);
     bucket_map_tree(gemm->buckets[nth], gemm->nsplits,
                     amm_lambda(void, (Bucket* buck) {
+                        amm_assert(buck->n_indices > 0, "buck->id %d", buck->id);
                         NDArray* region = amm_ndarray_ascontiguous(A_offline);
                         NDArray* shuffled = amm_ndarray_view_index(region, 0, buck->n_indices, buck->indices);
                         NDArray* c = amm_ndarray_ascontiguous(shuffled);
@@ -447,7 +447,10 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
                         amm_assert(buck->id >= 0 && buck->id < gemm->n_cluster, "The bucket id %d is out range of [0, %d).", buck->id, gemm->n_cluster);
                         amm_ndarray_slice(gemm->protos, 0, nth, nth, 1);
                         amm_ndarray_slice(gemm->protos, 1, buck->id, buck->id, 1);
-                        amm_ndarray_move(gemm->protos, amm_ndarray_reshape(m, amm_make_shape(3, (int[]){1, 1, steps})));
+                        amm_ndarray_slice(gemm->protos, 2, col_i, col_i+steps-1, 1);
+                        amm_ndarray_reshape(m, amm_make_shape(3, (int[]){1, 1, steps}));
+                        // PROTOS[C, BUCKET_ID] = CLUSTER
+                        amm_ndarray_move(gemm->protos, m); // TODO: A bug in viewed move?
                         amm_ndarray_free(shuffled);
                         amm_ndarray_free(c);
                         amm_ndarray_free(m);
@@ -455,6 +458,8 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
   }
   amm_ndarray_slice(gemm->protos, 0, 0, gemm->C-1, 1);
   amm_ndarray_slice(gemm->protos, 1, 0, gemm->n_cluster-1, 1);
+  amm_ndarray_slice(gemm->protos, 2, 0, gemm->M-1, 1);  
+  printf("All prototypes\n");
   print_ndarray(gemm->protos);
   // reset slice of protos
   amm_ndarray_free(col_losses);
