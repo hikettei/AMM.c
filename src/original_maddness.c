@@ -266,6 +266,20 @@ void learn_quantized_params(Bucket* bucket, NDArray* A_offline, int best_dim) {
   // TODO:
 }
 
+void bucket_map_tree(Bucket* bucket, int target_tree_level,
+#if defined(AMM_C_GCC_MODE)
+                     void (*f)(Bucket*)
+#else
+                     void (^f)(Bucket*)
+#endif
+                     ) {
+  if (bucket->tree_level == target_tree_level) f(bucket);
+  else {
+    if (bucket->left_child) bucket_map_tree(bucket->left_child, target_tree_level, f);
+    if (bucket->right_child) bucket_map_tree(bucket->right_child, target_tree_level, f);
+  }
+}
+
 void optimize_split_thresholds(Bucket* bucket, int min_idx, int best_dim, int nth_split, NDArray* A_offline) {
   if (bucket->tree_level == nth_split) {
     bucket->index = best_dim;
@@ -344,7 +358,7 @@ void optimize_bucket_splits(Bucket* bucket, int best_dim, NDArray* A_offline) {
     optimize_bucket_splits(bucket->left_child, best_dim, A_offline);
     optimize_bucket_splits(bucket->right_child, best_dim, A_offline);
   }
-  // amm_ndarray_free(left_side_points); amm_ndarray_free(right_side_points);
+  amm_ndarray_free(left_mask); amm_ndarray_free(right_mask);
 }
 
 Bucket* learn_binary_tree_splits(NDArray* A_offline, NDArray* col_losses, int col_i, int steps, int nsplits) {
@@ -421,7 +435,28 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
     amm_ndarray_slice(A_offline, 1, col_i, col_i+steps-1, 1);
     amm_ndarray_slice(gemm->protos, 2, col_i, col_i+steps-1, 1);
     gemm->buckets[nth] = learn_binary_tree_splits(A_offline, col_losses, col_i, steps, gemm->nsplits);
+    bucket_map_tree(gemm->buckets[nth], gemm->nsplits,
+                    amm_lambda(void, (Bucket* buck) {
+                        NDArray* region = amm_ndarray_ascontiguous(A_offline);
+                        NDArray* shuffled = amm_ndarray_view_index(region, 0, buck->n_indices, buck->indices);
+                        NDArray* c = amm_ndarray_ascontiguous(shuffled);
+                        NDArray* m = amm_ndarray_sum(c, 0);
+                        amm_ndarray_apply_unary(float, x[x_i] /= (float)buck->n_indices, m);
+                        amm_ndarray_sub(shuffled, amm_ndarray_expand(m, (int[]){buck->n_indices, 1}));
+                        amm_ndarray_slice(m, 0, 0, 0, 1);
+                        amm_assert(buck->id >= 0 && buck->id < gemm->n_cluster, "The bucket id %d is out range of [0, %d).", buck->id, gemm->n_cluster);
+                        amm_ndarray_slice(gemm->protos, 0, nth, nth, 1);
+                        amm_ndarray_slice(gemm->protos, 1, buck->id, buck->id, 1);
+                        amm_ndarray_move(gemm->protos, amm_ndarray_reshape(m, amm_make_shape(3, (int[]){1, 1, steps})));
+                        amm_ndarray_free(shuffled);
+                        amm_ndarray_free(c);
+                        amm_ndarray_free(m);
+                      }));
   }
+  amm_ndarray_slice(gemm->protos, 0, 0, gemm->C-1, 1);
+  amm_ndarray_slice(gemm->protos, 1, 0, gemm->n_cluster-1, 1);
+  print_ndarray(gemm->protos);
+  // reset slice of protos
   amm_ndarray_free(col_losses);
 }
 
