@@ -21,7 +21,7 @@ int main() {
   // Maddness Workflow
   // 1, Prototype Learning
   // Initialize matrix sampled from gaussian dist.
-  OriginalMaddnessGemm* mgemm = amm_original_maddness_gemm_alloc(512, 512, 512, 1, 16, 16, 4, AMM_DTYPE_F32);
+  OriginalMaddnessGemm* mgemm = amm_original_maddness_gemm_alloc(512, 512, 512, 1, 16, 4, AMM_DTYPE_F32);
   int a_rows = 1024;
   // We are going to approximate A[N M] @ B[M K]
   NDArray *A_offline = randn(a_rows, mgemm->M);

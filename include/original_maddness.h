@@ -22,7 +22,7 @@ struct OriginalMaddnessGemm {
   AMM_DType dtype; // Data type of the input matrix
 };
 
-OriginalMaddnessGemm *amm_original_maddness_gemm_alloc(int N, int M, int K, int LDX, int C, int n_cluster, int nsplits, AMM_DType dtype);
+OriginalMaddnessGemm *amm_original_maddness_gemm_alloc(int N, int M, int K, int LDX, int C, int nsplits, AMM_DType dtype);
 void amm_original_maddness_gemm_free(OriginalMaddnessGemm *mgemm);
 
 struct Bucket {
