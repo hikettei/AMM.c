@@ -10,28 +10,30 @@
 #include "ndarray.h"
 
 typedef struct OriginalMaddnessGemm OriginalMaddnessGemm;
+typedef struct Bucket Bucket;
+
 struct OriginalMaddnessGemm {
   int N, M, K; // A[N M] @ B[M K]  
   int LDX; // Column Major or Row Major.
   int C; // Number of Codebooks
   int nsplits; // Number of splits per codebook
   int n_cluster; // Number of clusters (Usually 16)
-  NDArray* quantized_lut; NDArray* buckets; NDArray* protos; // TODO: Quantizes into int8_t ~ binary/ternary?
+  NDArray* quantized_lut; Bucket** buckets; NDArray* protos; // TODO: Quantizes into int8_t ~ binary/ternary?
   AMM_DType dtype; // Data type of the input matrix
 };
 
 OriginalMaddnessGemm *amm_original_maddness_gemm_alloc(int N, int M, int K, int LDX, int C, int n_cluster, int nsplits, AMM_DType dtype);
 void amm_original_maddness_gemm_free(OriginalMaddnessGemm *mgemm);
 
-typedef struct Bucket Bucket;
 struct Bucket {
   int tree_level; int id;
   float scale; float offset; // Quantization Parameters (TODO: Abstraction for Quantization? QuantizedNDArray?)
   int threshold_quantized;
   int index;
   float threshold;
+  int threshold_candidates_count;
   void* threshold_candidates;
-  void* children; // Since Bucket is a binary tree, children is always NULL or cons.
+  Bucket* left_child; Bucket* right_child;
   void* indices;
   int n_indices; // Number of indices in this bucket
 };

@@ -287,7 +287,14 @@ __amm_keep NDArray* amm_ndarray_view_index(__amm_take NDArray* arr, int rank, in
   // indices are assumed to be in the range of [0, arr->shape->axes[rank]->size)
   amm_assert(rank <= arr->shape->nrank && rank >= 0, "amm_ndarray_view_index: invalid rank %d", rank);
   Axis* axis = arr->shape->axes[rank];
-  amm_assert(axis->random_access_idx == NULL, "amm_ndarray_view_index: random_access(random_access(x)) view merge is not implemented yet.");
+  // amm_assert(axis->random_access_idx == NULL, "amm_ndarray_view_index: random_access(random_access(x)) view merge is not implemented yet.");
+#if defined(AMM_C_SAFE_MODE)
+  int old_size = amm_ndarray_size_of(arr, rank);
+  for (int i=0; i<new_size; i++) {
+    int new_idx = indices[i];
+    amm_assert(new_idx >= 0 && new_idx < old_size, "amm_ndarray_view_index: Cannot access %dth element from %d vector.", new_idx, old_size);
+  }
+#endif
   axis->random_access_idx = (void*)indices;
   axis->size = new_size;
   // TODO(hikettei): how to design the indices memory management? is there no double free?
@@ -319,13 +326,12 @@ __amm_keep NDArray* amm_ndarray_slice(__amm_take NDArray* arr, int rank, int fro
   if (by < 0) { int tmp=to; to=from; from=tmp; by=-by; }
   if (from > to) by = -by;
   
-  if (by > 0) amm_assert(from < to, "amm_ndarray_slice: invalid range %d:%d", from, to);
+  if (by > 0) amm_assert(from <= to, "amm_ndarray_slice: invalid range %d:%d", from, to);
   else amm_assert(from > to, "amm_ndarray_slice: invalid range %d:%d", from, to);
   
   Axis* axis = arr->shape->axes[rank];
   amm_assert(axis->random_access_idx == NULL, "amm_ndarray_slice: random_access(random_access(x)) view merge is not implemented yet.");
-  
-  axis->size = (to - from) / by;
+  axis->size = abs((1+abs(to - from)) / by);
   axis->by = by;
   axis->offset = from;
   
@@ -373,7 +379,7 @@ void _amm_step_simulated_loop(int current_rank, int nrank, const int* iteration_
       }
     } else {
       // If none of then has random access, we can just use range_applier which is faster.
-      for (int i=0; i<nargs; i++) increments[i] = amm_ndarray_stride_of(args[i], current_rank);
+      for (int i=0; i<nargs; i++) increments[i] = amm_ndarray_stride_of(args[i], current_rank) * args[i]->shape->axes[current_rank]->by;
       for (int i=0; i<nargs; i++) offsets[i] += amm_axis_compute_index_on_memory(args[i]->shape->axes[current_rank], 0);
       // Call the range_applier
       range_invoker(iteration_space[current_rank], offsets, increments);
@@ -431,6 +437,7 @@ void _amm_ndarray_apply(int nargs, NDArray** args,
   amm_assert(index_placeholder, "Failed to alloc index_placeholder");
   amm_assert(offsets, "Failed to alloc offsets");
   amm_assert(increments, "Failed to alloc increments");
+  // TODO: Below uses the first arg shape space.
   for (int i=0; i<nrank; i++) iteration_space[i] = amm_ndarray_size_of(args[0], i);
   // Start simulating the loop
   _amm_step_simulated_loop(0, nrank, iteration_space, nargs, args, index_placeholder, offsets, offsets_tmp, increments,
@@ -585,7 +592,18 @@ __amm_give NDArray* amm_ndarray_ascontiguous(__amm_keep NDArray* arr) {
 }
 
 __amm_keep NDArray* amm_ndarray_index_components(__amm_take NDArray* arr) {
-  amm_ndarray_apply_unary(float, x[x_i] = x_i, arr);
+  switch (arr->dtype) {
+  case AMM_DTYPE_I32: 
+    amm_ndarray_apply_unary(int, x[x_i] = x_i, arr);
+    break;
+  case AMM_DTYPE_F32:
+    amm_ndarray_apply_unary(float, x[x_i] = x_i, arr);
+    break;
+  default:
+    fprintf(stderr, "amm_ndarray_index_components for dtype %d is not implemented yet.", arr->dtype);
+    return NULL;
+  }
+    
   return arr;
 }
 
@@ -704,4 +722,21 @@ void print_ndarray(__amm_keep NDArray* arr) {
   free(idx);
   free(dims);
   free(strides);
+}
+
+void amm_assert_shape_eq(__amm_keep NDArray* a, __amm_keep NDArray* b) {
+  if (!a || !b) {
+    fprintf(stderr, "amm_assert_shape_eq: one of the arrays is NULL\n");
+    return;
+  }
+  if (a->shape->nrank != b->shape->nrank) {
+    fprintf(stderr, "amm_assert_shape_eq: rank mismatch %d vs %d\n", a->shape->nrank, b->shape->nrank);
+    return;
+  }
+  for (int i = 0; i < a->shape->nrank; ++i) {
+    if (a->shape->axes[i]->size != b->shape->axes[i]->size) {
+      fprintf(stderr, "amm_assert_shape_eq: size mismatch at axis %d: %d vs %d\n", i, a->shape->axes[i]->size, b->shape->axes[i]->size);
+      return;
+    }
+  }
 }

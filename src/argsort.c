@@ -10,11 +10,11 @@ static int cmp_pair(const void *a, const void *b) {
     return 0;
 }
 
-void argsort(const float *arr, int n, int *idxs) {
+void argsort(const float *arr, int n, int *idxs, int sign) {
     Pair *pairs = malloc(n * sizeof(Pair));
     for (int i = 0; i < n; ++i) {
         pairs[i].idx = i;
-        pairs[i].val = arr[i];
+        pairs[i].val = arr[i] * sign;
     }
     qsort(pairs, n, sizeof(Pair), cmp_pair);
     for (size_t i = 0; i < n; ++i) idxs[i] = pairs[i].idx;
