@@ -127,9 +127,7 @@ __amm_give NDArray* sort_rows_based_on_col(__amm_keep NDArray* x, int dim) {
   amm_ndarray_slice(x1, 1, dim, dim, 1);
   NDArray* sliced = amm_ndarray_ascontiguous(x1);
   NDArray* sorted = amm_ndarray_zeros(amm_make_shape(1, (int[]){amm_ndarray_size_of(x, 0)}), AMM_DTYPE_I32);
-  argsort((float*)sliced->storage, amm_ndarray_size_of(x, 0), (int*)sorted->storage);
-  int N = amm_ndarray_size_of(x1, 0);
-  amm_ndarray_apply_unary(int, x[x_i] = N - x[x_i], sorted)
+  argsort((float*)sliced->storage, amm_ndarray_size_of(x, 0), (int*)sorted->storage, -1);
   amm_ndarray_free(sliced);
   amm_ndarray_free(x1);
   return sorted;
@@ -194,10 +192,10 @@ void compute_optimal_val_splits(float* threshold, float* loss, NDArray* A_offlin
   
   int N = amm_ndarray_size_of(x_sort_indices, 0);
   int D = amm_ndarray_size_of(A_offline, 1);
-  // tmp
+
   NDArray* x_head = amm_ndarray_zeros(amm_make_shape(2, (int[]){N, D}), A_offline->dtype);
   NDArray* x_tail = amm_ndarray_zeros(amm_make_shape(2, (int[]){N, D}), A_offline->dtype);
-  
+
   amm_ndarray_view_index(a_offline_r1, 0, N, (int*)x_sort_indices->storage);
   NDArray* a_offline_r2 = amm_ndarray_ascontiguous(a_offline_r1);
   cumulative_sse(a_offline_r2, x_head);
@@ -209,18 +207,16 @@ void compute_optimal_val_splits(float* threshold, float* loss, NDArray* A_offlin
 
   int N1 = amm_ndarray_size_of(s_out, 0);
   NDArray* s_out_i = amm_ndarray_zeros(amm_make_shape(1, (int[]){N1}), AMM_DTYPE_I32);
-  argsort((float*)s_out->storage, N1, (int*)s_out_i->storage);
-  
-  amm_ndarray_apply_unary(int, x[x_i] = (N1-1) - x[x_i], s_out_i);
+  argsort((float*)s_out->storage, N1, (int*)s_out_i->storage, -1);
   int best_idx = ((int*)s_out_i->storage)[0];
-  int next_idx = MIN(1+best_idx, amm_ndarray_size_of(A_offline, 0) - 1);
+  int next_idx = MIN(1+best_idx, amm_ndarray_size_of(a_offline_r, 0) - 1);
 
-  amm_assert(best_idx >= 0 && best_idx <= amm_ndarray_size_of(x_sort_indices, 0)-1, "compute_optimal_val_splits: wrong best_idx? %d", best_idx);
-  amm_assert(next_idx >= 0 && next_idx <= amm_ndarray_size_of(x_sort_indices, 0)-1, "compute_optimal_val_splits: wrong next_idx? %d", next_idx);
+  amm_assert(best_idx >= 0 && best_idx < amm_ndarray_size_of(x_sort_indices, 0), "compute_optimal_val_splits: wrong best_idx? %d", best_idx);
+  amm_assert(next_idx >= 0 && next_idx < amm_ndarray_size_of(x_sort_indices, 0), "compute_optimal_val_splits: wrong next_idx? %d", next_idx);
   int col_idx1 = amm_ndarray_aref(int, x_sort_indices, best_idx);
   int col_idx2 = amm_ndarray_aref(int, x_sort_indices, next_idx);
-  amm_assert(col_idx1 >= 0 && col_idx1 <= amm_ndarray_size_of(a_offline_r, 0)-1, "compute_optimal_val_splits: wrong col_idx1? %d", col_idx1);
-  amm_assert(col_idx2 >= 0 && col_idx2 <= amm_ndarray_size_of(a_offline_r, 0)-1, "compute_optimal_val_splits: wrong col_idx12 %d", col_idx2);
+  amm_assert(col_idx1 >= 0 && col_idx1 < amm_ndarray_size_of(a_offline_r, 0), "compute_optimal_val_splits: wrong col_idx1? %d", col_idx1);
+  amm_assert(col_idx2 >= 0 && col_idx2 < amm_ndarray_size_of(a_offline_r, 0), "compute_optimal_val_splits: wrong col_idx1? %d", col_idx2);
 
   float val1 = amm_ndarray_aref(float, a_offline_r, col_idx1, dim);
   float val2 = amm_ndarray_aref(float, a_offline_r, col_idx2, dim);
@@ -372,7 +368,7 @@ B(3, 1)  B(3, 2)   B(3, 3)  B(3, 4)    | nth=2
   for (int nth_split=0; nth_split < nsplits; nth_split++) {
     amm_ndarray_apply_unary(float, x[x_i] = 0.0f, col_losses); // TODO: Implement amm_ndarray_fill
     sumup_col_sum_sqs(col_losses, bucket, A_offline);
-    argsort((float*)col_losses->storage, steps, (int*)col_losses_i->storage); // col_losses_i <- argosrt(col_losses)
+    argsort((float*)col_losses->storage, steps, (int*)col_losses_i->storage, 1); // col_losses_i <- argosrt(col_losses)
     amm_ndarray_apply_unary(float, x[x_i] = 0.0f, total_losses); // TODO: Implement amm_ndarray_fill
     // Optimize splits based on col_losses
     for (int d=0; d<steps; d++)

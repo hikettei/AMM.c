@@ -4,4 +4,4 @@ typedef struct {
 } Pair;
 
 static int cmp_pair(const void *a, const void *b);
-void argsort(const float* arr, int n, int* idxs);
+void argsort(const float* arr, int n, int* idxs, int sign);
