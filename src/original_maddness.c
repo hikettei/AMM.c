@@ -19,7 +19,7 @@
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 // ~~ Alloc/Free ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-OriginalMaddnessGemm *amm_original_maddness_gemm_alloc(int N, int M, int K, int LDX, int C, int n_cluster, int nsplits, AMM_DType dtype) {
+OriginalMaddnessGemm *amm_original_maddness_gemm_alloc(int N, int M, int K, int LDX, int C, int nsplits, AMM_DType dtype) {
   struct OriginalMaddnessGemm *mgemm = malloc(sizeof *mgemm);
   if (mgemm == NULL) {
     fprintf(stderr, "Failed to allocate memory for OriginalMaddnessGemm\n");
@@ -27,7 +27,7 @@ OriginalMaddnessGemm *amm_original_maddness_gemm_alloc(int N, int M, int K, int 
   }
   mgemm->N = N; mgemm->M = M; mgemm-> K = K;
   mgemm->LDX = LDX;
-  mgemm->C = C; mgemm->nsplits = nsplits; mgemm->n_cluster = n_cluster;
+  mgemm->C = C; mgemm->nsplits = nsplits; mgemm->n_cluster = 2 << (nsplits-1);
   // TODO: func* allocator = {... if dtype = ...}
   mgemm->quantized_lut = NULL; mgemm->buckets = NULL; mgemm->protos = NULL; // TODO: Initialize quantized LUT if needed
   mgemm->dtype = dtype;
@@ -459,8 +459,8 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
   amm_ndarray_slice(gemm->protos, 0, 0, gemm->C-1, 1);
   amm_ndarray_slice(gemm->protos, 1, 0, gemm->n_cluster-1, 1);
   amm_ndarray_slice(gemm->protos, 2, 0, gemm->M-1, 1);  
-  printf("All prototypes\n");
-  print_ndarray(gemm->protos);
+   printf("All prototypes\n");
+   print_ndarray(gemm->protos);
   
   // reset slice of protos
   amm_ndarray_free(col_losses);
@@ -468,19 +468,20 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
 
 void learn_proto_and_hash_function(OriginalMaddnessGemm* gemm, NDArray* A_offline) {
   init_and_learn_offline(gemm, A_offline); // gemm.buckets = new_bucket; gemm.protos = new_proto;
+  // TODO: optimize-prototypes-ridge!
 }
 // 1. Prototype Learning
 void amm_om_setAoffline(OriginalMaddnessGemm* gemm, NDArray* A_offline) {
   learn_proto_and_hash_function(gemm, A_offline);
+  // TODO Offload to DISK?
 }
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 void amm_om_setA(OriginalMaddnessGemm* gemm, NDArray* A) {
-  
+  // mithral-encode-fp32-t
 }
 
 void amm_om_setB(OriginalMaddnessGemm* gemm, NDArray* B) {
-
+  // scan and compute lut
 }
 
 #endif // AMM_C_ALGO_ORIGINAL_MADDNESS
