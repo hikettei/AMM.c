@@ -437,6 +437,7 @@ void _amm_ndarray_apply(int nargs, NDArray** args,
   amm_assert(index_placeholder, "Failed to alloc index_placeholder");
   amm_assert(offsets, "Failed to alloc offsets");
   amm_assert(increments, "Failed to alloc increments");
+  // TODO: Below uses the first arg shape space.
   for (int i=0; i<nrank; i++) iteration_space[i] = amm_ndarray_size_of(args[0], i);
   // Start simulating the loop
   _amm_step_simulated_loop(0, nrank, iteration_space, nargs, args, index_placeholder, offsets, offsets_tmp, increments,
