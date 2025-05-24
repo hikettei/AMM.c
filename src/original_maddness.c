@@ -347,7 +347,7 @@ void optimize_bucket_splits(Bucket* bucket, int best_dim, NDArray* A_offline) {
   // amm_ndarray_free(left_side_points); amm_ndarray_free(right_side_points);
 }
 
-void learn_binary_tree_splits(NDArray* A_offline, NDArray* col_losses, int col_i, int steps, int nsplits) {
+Bucket* learn_binary_tree_splits(NDArray* A_offline, NDArray* col_losses, int col_i, int steps, int nsplits) {
   /*
     
 Figure:
@@ -382,11 +382,10 @@ B(3, 1)  B(3, 2)   B(3, 3)  B(3, 4)    | nth=2
 
     optimize_split_thresholds(bucket, min_idx, best_dim, nth_split, A_offline);
     optimize_bucket_splits(bucket, best_dim, A_offline);
-    printf("LOOP\n");
   }
-  printf("FINISHED\n");
   
   amm_ndarray_free(col_losses_i); amm_ndarray_free(total_losses);
+  return bucket;
 }
 
 // Protoype Learning
@@ -408,12 +407,10 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
   amm_assert((gemm->M % gemm->C) == 0, "init_and_learn_offline_fp32: M should be divisible by C");
   int steps = gemm->M / gemm->C;
   // Allocation
-  // TODO: The shape of buckets???
-  if (gemm->buckets == NULL) gemm->buckets = amm_ndarray_zeros(amm_make_shape(2, (int[]){gemm->C, gemm->nsplits}), A_offline->dtype);
+  if (gemm->buckets == NULL) gemm->buckets = malloc(sizeof(Bucket*) * gemm->M / steps);
   if (gemm->protos == NULL)  gemm->protos = amm_ndarray_zeros(amm_make_shape(3, (int[]){gemm->C, gemm->n_cluster, gemm->M}), A_offline->dtype);
 
   NDArray* col_losses = amm_ndarray_zeros(amm_make_shape(2, (int[]){1, steps}), AMM_DTYPE_F32);
-  
 #ifdef AMM_C_USE_OMP
 #pragma omp parallel for
 #endif
@@ -423,10 +420,8 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
     // as well as prototype
     amm_ndarray_slice(A_offline, 1, col_i, col_i+steps-1, 1);
     amm_ndarray_slice(gemm->protos, 2, col_i, col_i+steps-1, 1);
-    learn_binary_tree_splits(A_offline, col_losses, col_i, steps, gemm->nsplits);
-    printf("TRAINED");
+    gemm->buckets[nth] = learn_binary_tree_splits(A_offline, col_losses, col_i, steps, gemm->nsplits);
   }
-
   amm_ndarray_free(col_losses);
 }
 
