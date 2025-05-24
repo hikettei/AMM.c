@@ -461,6 +461,7 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
   amm_ndarray_slice(gemm->protos, 2, 0, gemm->M-1, 1);  
   printf("All prototypes\n");
   print_ndarray(gemm->protos);
+  
   // reset slice of protos
   amm_ndarray_free(col_losses);
 }
