@@ -534,7 +534,6 @@ void amm_om_setAoffline(OriginalMaddnessGemm* gemm, NDArray* A_offline) {
 void amm_om_setA(OriginalMaddnessGemm* gemm, NDArray* A, NDArray* out) {
   encode_m_f32((float*)A->storage, amm_ndarray_size_of(A, 0), amm_ndarray_size_of(A, 1), amm_ndarray_stride_of(A, 0), amm_ndarray_stride_of(A, 1),
                gemm->C, gemm->nsplits, gemm->splitdims, gemm->splitvals, gemm->scales, gemm->offsets, (int8_t*)out->storage);
-  print_ndarray(out);
 }
 
 void amm_om_setB(OriginalMaddnessGemm* gemm, NDArray* B) {
@@ -574,11 +573,43 @@ void amm_om_setB(OriginalMaddnessGemm* gemm, NDArray* B) {
       }
     }
   }
-  print_ndarray(out_lut_f32);
   // TODO: maddness quantize luts should have at least BlockwiseQuantization, not scalar.
-
-  // Each row of B.reshape(1, 1, -1) @ proto[C, K, D]
-  //  NDArray* out_lut_q   = amm_ndarray_zeros(amm_make_shape(3, (int[]){M, gemm->C, gemm->n_cluster}), AMM_DTYPE_U8);
+  // Quantization
+  NDArray* out_lut_q = amm_ndarray_zeros(amm_make_shape(3, (int[]){M, gemm->C, gemm->n_cluster}), AMM_DTYPE_I64);
+  NDArray* mins = amm_ndarray_zeros(amm_make_shape(3, (int[]){1, gemm->C, 1}), AMM_DTYPE_F32);
+  float gap = -FLT_MAX;
+  for (int c=0; c<gemm->C; c++) {
+    float acc1 = -FLT_MAX;
+    float acc2 = FLT_MAX;
+    for (int k=0; k<gemm->n_cluster; k++) {
+      for (int i=0; i<M; i++) {
+        float val = ((float*)out_lut_f32->storage)[i * ldo1 + c * ldo2 + k * ldo3];
+        acc1 = MAX(acc1, val);
+        acc2 = MIN(acc2, val);
+      }
+    }
+    ((float*)mins->storage)[c] = acc2;
+    gap = MAX(gap, acc1 - acc2);
+  }
+  float exponent = ceilf(log2f(gap));
+  float scale = powf(2.0f, -exponent);
+  scale *= 255.5f - 1e-10;
+  printf("gap: %.4f, exponent: %.4f, scale: %.4f\n", gap, exponent, scale);
+  amm_ndarray_expand(mins, (int[]){M, 1, gemm->n_cluster});
+  amm_ndarray_apply_binary(float, float, out[out_i] = 0.5f + (scale * (out[out_i] - x[x_i])), out_lut_f32, mins);
+  amm_ndarray_apply_binary(int64_t, float, out[out_i] = (int64_t)x[x_i], out_lut_q, out_lut_f32);
+#if defined(AMM_C_SAFE_MODE)
+  int64_t min_val = INT64_MAX;
+  int64_t max_val = INT64_MIN;
+  for (int i=0; i<M*gemm->C*gemm->n_cluster; i++) {
+    min_val = MIN(min_val, ((int64_t*)out_lut_q->storage)[i]);
+    max_val = MAX(max_val, ((int64_t*)out_lut_q->storage)[i]);
+  }
+  amm_assert(min_val >= 0 && max_val <= 255, "Quantized LUT values are out of range [0, 255], min: %lld, max: %lld", min_val, max_val);
+#endif
+  gemm->quantized_lut = out_lut_q;
+  amm_ndarray_free(out_lut_f32);
+  amm_ndarray_free(mins);
 }
 
 #endif // AMM_C_ALGO_ORIGINAL_MADDNESS
