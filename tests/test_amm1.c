@@ -28,15 +28,16 @@ int main() {
   // for debug
   // amm_ndarray_index_components(A_offline);
   NDArray *A         = randn(mgemm->N, mgemm->M);
+  NDArray *A_enc     = amm_ndarray_zeros(amm_make_shape(2, (int[]){mgemm->N, mgemm->M}), AMM_DTYPE_U8);
+  
   NDArray *B         = randn(mgemm->M, mgemm->K);
   print_ndarray(A_offline);
 
   // 1. SET_A_OFFLINE
   amm_om_setAoffline(mgemm, A_offline);
-
-  // Compute A_hat @ B
-  amm_om_setA(mgemm, A);
-  amm_om_setB(mgemm, B);
+  
+  amm_om_setA(mgemm, A, A_enc); // Encode A
+  amm_om_setB(mgemm, B); // Encode B
   
   amm_original_maddness_gemm_free(mgemm);
 

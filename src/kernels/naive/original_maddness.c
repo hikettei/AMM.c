@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-void encode_m_f32(const float *X, int m, int n, int ldx,
+void encode_m_f32(const float *X, int m, int n, int ldx1, int ldx2,
                   int C, int nsplits,
                   const uint32_t * splitdims, const int8_t *splitvals, const float *scales, const float *offsets,
                   uint8_t* out) {
@@ -31,7 +31,7 @@ void encode_m_f32(const float *X, int m, int n, int ldx,
         int code = 0;
         for (int s=0; s< nsplits; s++) {
           uint32_t dim = splitdims[split_base + s];
-          float x = X[(int64_t)dim * ldx + row];
+          float x = X[(int64_t)dim * ldx1 + row * ldx2];
           float v = x * scales[split_base + s] + offsets[split_base + s];
           int iv = (int)roundf(x);
           if (iv > 127) iv = 127;
