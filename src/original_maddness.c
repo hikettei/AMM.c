@@ -15,6 +15,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <float.h>
+#include <tgmath.h>
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
@@ -263,7 +264,28 @@ int optimal_val_splits(NDArray* A_offline, Bucket* bucket, NDArray* total_losses
 
 void learn_quantized_params(Bucket* bucket, NDArray* A_offline, int best_dim) {
   // Appendix B
-  // TODO:
+  NDArray* sorts = sort_rows_based_on_col(A_offline, best_dim);
+  int idx1 = ((int*)sorts->storage)[0];
+  int idx2 = ((int*)sorts->storage)[amm_ndarray_size_of(sorts, 0) - 1];
+  float min_loss = amm_ndarray_aref(float, A_offline, idx1, best_dim);
+  float max_loss = amm_ndarray_aref(float, A_offline, idx2, best_dim);
+  amm_ndarray_free(sorts);
+  float min_val = -FLT_MAX;
+  float max_val = FLT_MAX;
+  for (int i=0; i<bucket->threshold_candidates_count; i++) {
+    float c = ((float*)bucket->threshold_candidates)[i];
+    min_val = MIN(min_val, c);
+    max_val = MAX(max_val, c);
+  }
+  float offset = (min_loss + min_val) / 2.0f;
+  float upper_val = ((max_loss + max_val) / 2.0f) - offset;
+  
+  float l = log2f(254.0f / upper_val);
+  float scale = powf(2.0f, l);
+  
+  bucket->scale = scale;
+  bucket->offset = offset;
+  bucket->threshold_quantized = (int)roundf((bucket->threshold - offset) * scale);
 }
 
 void bucket_map_tree(Bucket* bucket, int target_tree_level,
@@ -465,8 +487,6 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
   amm_ndarray_slice(gemm->protos, 0, 0, gemm->C-1, 1);
   amm_ndarray_slice(gemm->protos, 1, 0, gemm->n_cluster-1, 1);
   amm_ndarray_slice(gemm->protos, 2, 0, gemm->M-1, 1);
-  printf("All prototypes\n");
-  print_ndarray(gemm->protos);
   // reset slice of protos
   amm_ndarray_free(col_losses);
 }
