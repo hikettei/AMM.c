@@ -48,3 +48,4 @@ void amm_bucket_free(Bucket* bucket);
 void amm_om_setAoffline(OriginalMaddnessGemm *mgemm, NDArray* A_offline);
 void amm_om_setA(OriginalMaddnessGemm *mgemm, NDArray* A, NDArray* A_enc);
 void amm_om_setB(OriginalMaddnessGemm *mgemm, NDArray* B);
+void amm_om_gemm(OriginalMaddnessGemm* gemm, NDArray* A_enc, NDArray* out);

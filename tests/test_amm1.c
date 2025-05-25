@@ -54,7 +54,13 @@ int main() {
 
   // Training & LUT Creation Finished
   // Compute Online Maddness GEMM
-  
+  NDArray* out = amm_ndarray_zeros(amm_make_shape(2, (int[]){mgemm->N, mgemm->K}), AMM_DTYPE_U8);
+
+  begin = clock();
+  amm_om_setA(mgemm, A, A_enc);
+  amm_om_gemm(mgemm, A_enc, out);
+  printf("Gemm %f seconds\n", (double)(clock() - begin) / CLOCKS_PER_SEC);
+  print_ndarray(out);
   amm_original_maddness_gemm_free(mgemm);
 
   amm_ndarray_free(A_offline); amm_ndarray_free(A); amm_ndarray_free(B);

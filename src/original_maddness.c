@@ -144,7 +144,7 @@ __amm_give NDArray* ndarray_reverse(__amm_keep NDArray* x) {
   return x2;
 }
 
-float *cumulative_sse(NDArray* xp, NDArray* cumsses) {
+void *cumulative_sse(NDArray* xp, NDArray* cumsses) {
   int N = amm_ndarray_size_of(xp, 0);
   int D = amm_ndarray_size_of(xp, 1);
   
@@ -533,7 +533,7 @@ void amm_om_setAoffline(OriginalMaddnessGemm* gemm, NDArray* A_offline) {
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void amm_om_setA(OriginalMaddnessGemm* gemm, NDArray* A, NDArray* out) {
   encode_m_f32((float*)A->storage, amm_ndarray_size_of(A, 0), amm_ndarray_size_of(A, 1), amm_ndarray_stride_of(A, 0), amm_ndarray_stride_of(A, 1),
-               gemm->C, gemm->nsplits, gemm->splitdims, gemm->splitvals, gemm->scales, gemm->offsets, (int8_t*)out->storage);
+               gemm->C, gemm->nsplits, gemm->splitdims, gemm->splitvals, gemm->scales, gemm->offsets, (uint8_t*)out->storage);
 }
 
 void amm_om_setB(OriginalMaddnessGemm* gemm, NDArray* B) {
@@ -616,4 +616,10 @@ void amm_om_setB(OriginalMaddnessGemm* gemm, NDArray* B) {
   amm_ndarray_free(mins);
 }
 
+
+void amm_om_gemm(OriginalMaddnessGemm* gemm, NDArray* A_enc, NDArray* out) {
+  // Approximate gemm across A_enc and B
+  mithral_scan((uint8_t*)A_enc->storage, gemm->n_cluster, (uint8_t*)gemm->quantized_lut->storage, (uint8_t*)out->storage,
+               amm_ndarray_size_of(A_enc, 0), 16, 0);
+}
 #endif // AMM_C_ALGO_ORIGINAL_MADDNESS

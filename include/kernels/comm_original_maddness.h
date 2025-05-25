@@ -41,3 +41,6 @@ void encode_m_f32(const float *X, int m, int n, int ldx1, int ldx2,
                   int C, int nsplits,
                   const uint32_t * splitdims, const int8_t *splitvals, const float *scales, const float *offsets,
                   uint8_t* out);
+
+// Force16BitOutput == 0 or 1
+void mithral_scan(const uint8_t *codes, int64_t nblocks, const uint8_t *luts, uint8_t *dists_out, int NBytes, int UpcastEvery, int Force16BitOutput);
