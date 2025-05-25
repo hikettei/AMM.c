@@ -456,7 +456,7 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
                         amm_ndarray_slice(gemm->protos, 0, nth, nth, 1);
                         amm_ndarray_slice(gemm->protos, 1, buck->id, buck->id, 1);
                         amm_ndarray_reshape(centroids, amm_make_shape(3, (int[]){1, 1, gemm->M}));
-                        amm_ndarray_move(gemm->protos, centroids); // TODO: A bug in viewed move?
+                        amm_ndarray_move(gemm->protos, centroids);
                         amm_ndarray_reshape(centroids, amm_make_shape(2, (int[]){1, gemm->M}));
                         amm_ndarray_free(m);
                       }));
