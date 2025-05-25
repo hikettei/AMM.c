@@ -538,6 +538,7 @@ void amm_om_setA(OriginalMaddnessGemm* gemm, NDArray* A, NDArray* out) {
     //  }
   encode_m_f32((float*)A->storage, amm_ndarray_size_of(A, 0), amm_ndarray_size_of(A, 1), amm_ndarray_stride_of(A, 0), amm_ndarray_stride_of(A, 1),
                gemm->C, gemm->nsplits, gemm->splitdims, gemm->splitvals, gemm->scales, gemm->offsets, (int8_t*)out->storage);
+  print_ndarray(out);
 }
 
 void amm_om_setB(OriginalMaddnessGemm* gemm, NDArray* B) {
