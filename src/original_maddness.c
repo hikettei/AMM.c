@@ -493,24 +493,24 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
   amm_ndarray_free(col_losses);
 }
 
-void flatten_bucket_params(Bucket** buckets, int n_buckets_in_gemm, int nsplits, float* offsets, float* scales, uint32_t* dims, int8_t* qts) {
+void flatten_bucket_params(Bucket** buckets, int n_buckets_in_gemm, int nsplits, OriginalMaddnessGemm* gemm) {
   int n_buckets_per_row = 0;
   for (int i=0;i<nsplits;i++) n_buckets_per_row = (2 << i) + n_buckets_per_row;
-  amm_assert(offsets == NULL && scales == NULL && dims == NULL && qts == NULL,
+  amm_assert(gemm->offsets == NULL && gemm->scales == NULL && gemm->splitdims == NULL && gemm->splitvals == NULL,
              "flatten_bucket_params: offsets, scales, dims, qts must be allocated before calling this function");
-  offsets = malloc(sizeof(float) * n_buckets_per_row * n_buckets_in_gemm);
-  scales = malloc(sizeof(float) * n_buckets_per_row * n_buckets_in_gemm);
-  dims = malloc(sizeof(uint32_t) * n_buckets_per_row * n_buckets_in_gemm);
-  qts  = malloc(sizeof(int8_t) * n_buckets_per_row * n_buckets_in_gemm);
+  gemm->offsets = malloc(sizeof(float) * n_buckets_per_row * n_buckets_in_gemm);
+  gemm->scales = malloc(sizeof(float) * n_buckets_per_row * n_buckets_in_gemm);
+  gemm->splitdims = malloc(sizeof(uint32_t) * n_buckets_per_row * n_buckets_in_gemm);
+  gemm->splitvals  = malloc(sizeof(int8_t) * n_buckets_per_row * n_buckets_in_gemm);
   int offset = 0;
   for (int i=0; i<nsplits; i++) {
     for (int b=0; b<n_buckets_in_gemm; b++) {
       Bucket* bucket = buckets[b];
       bucket_map_tree(bucket, i, amm_lambda(void, (Bucket* buck) {
-            offsets[offset + buck->id] = buck->offset;
-            scales[offset + buck->id] = buck->scale;
-            dims[offset + buck->id] = buck->index;
-            qts[offset + buck->id] = buck->threshold_quantized;
+            gemm->offsets[offset + buck->id] = buck->offset;
+            gemm->scales[offset + buck->id] = buck->scale;
+            gemm->splitdims[offset + buck->id] = buck->index;
+            gemm->splitvals[offset + buck->id] = buck->threshold_quantized;
           }));
       offset += (2 << i);
     }
@@ -526,11 +526,15 @@ void learn_proto_and_hash_function(OriginalMaddnessGemm* gemm, NDArray* A_offlin
 void amm_om_setAoffline(OriginalMaddnessGemm* gemm, NDArray* A_offline) {
   learn_proto_and_hash_function(gemm, A_offline);
   // Convert bucket threshold, dim, quantized offsets/scale into NDArray.
-  flatten_bucket_params(gemm->buckets, gemm->C, gemm->nsplits, gemm->offsets, gemm->scales, gemm->splitdims, gemm->splitvals);
+  flatten_bucket_params(gemm->buckets, gemm->C, gemm->nsplits, gemm);
   // TODO: Store learned offsets/scales/splitdims/splitvals into DISK.
 }
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void amm_om_setA(OriginalMaddnessGemm* gemm, NDArray* A, NDArray* out) {
+  for (int i=0; i<100; i++) {
+    printf("splitdim %d, splitval %d, scale %f, offset %f\n",
+           gemm->splitdims[i], gemm->splitvals[i], gemm->scales[i], gemm->offsets[i]);
+  }
   encode_m_f32((float*)A->storage, amm_ndarray_size_of(A, 0), amm_ndarray_size_of(A, 1), amm_ndarray_stride_of(A, 0), amm_ndarray_stride_of(A, 1),
                gemm->C, gemm->nsplits, gemm->splitdims, gemm->splitvals, gemm->scales, gemm->offsets, (int8_t*)out->storage);
 }
