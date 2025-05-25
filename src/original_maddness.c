@@ -524,10 +524,7 @@ void learn_proto_and_hash_function(OriginalMaddnessGemm* gemm, NDArray* A_offlin
 void amm_om_setAoffline(OriginalMaddnessGemm* gemm, NDArray* A_offline) {
   learn_proto_and_hash_function(gemm, A_offline);
   // Convert bucket threshold, dim, quantized offsets/scale into NDArray.
-  // TODO: Store into DISK.
-  float* offsets = NULL, *scales = NULL;
-  int* dims = NULL, *qts = NULL;
-  flatten_bucket_params(gemm->buckets, gemm->C, gemm->nsplits, offsets, scales, dims, qts);
+  flatten_bucket_params(gemm->buckets, gemm->C, gemm->nsplits, gemm->offsets, gemm->scales, gemm->splitdims, gemm->splitvals);
   
 }
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

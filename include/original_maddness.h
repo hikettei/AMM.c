@@ -20,6 +20,8 @@ struct OriginalMaddnessGemm {
   int n_cluster; // Number of clusters (Usually 16)
   NDArray* quantized_lut; Bucket** buckets; NDArray* protos; // TODO: Quantizes into int8_t ~ binary/ternary?
   AMM_DType dtype; // Data type of the input matrix
+  // Learned Parameters which is actually needed for approximation
+  float* scales; float* offsets; int* splitdims; int* splitvals;
 };
 
 OriginalMaddnessGemm *amm_original_maddness_gemm_alloc(int N, int M, int K, int LDX, int C, int nsplits, AMM_DType dtype);
