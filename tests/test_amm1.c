@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-
+# include <time.h>
 // TODO: Implement Multiple Maddness Algorithm
 // 1. OriginalMaddnessGemm
 // 2. Differentiable MaddnessGemm
@@ -35,8 +35,11 @@ int main() {
 
   // 1. SET_A_OFFLINE
   amm_om_setAoffline(mgemm, A_offline);
-  
+
+  clock_t begin = clock();
   amm_om_setA(mgemm, A, A_enc); // Encode A
+  printf("Encoding A took %f seconds\n", (double)(clock() - begin) / CLOCKS_PER_SEC);
+  
   amm_om_setB(mgemm, B); // Encode B
   
   amm_original_maddness_gemm_free(mgemm);
