@@ -330,10 +330,11 @@ __amm_keep NDArray* amm_ndarray_slice(__amm_take NDArray* arr, int rank, int fro
   else amm_assert(from > to, "amm_ndarray_slice: invalid range %d:%d", from, to);
   
   Axis* axis = arr->shape->axes[rank];
-  amm_assert(axis->random_access_idx == NULL, "amm_ndarray_slice: random_access(random_access(x)) view merge is not implemented yet.");
+  // amm_assert(axis->random_access_idx == NULL, "amm_ndarray_slice: random_access(random_access(x)) view merge is not implemented yet.");
   axis->size = abs((1+abs(to - from)) / by);
   axis->by = by;
   axis->offset = from;
+  axis->random_access_idx = NULL; // Reset random access index
   
   amm_assert(axis->size > 0, "amm_ndarray_slice: invalid shape %d", axis->size);
   return arr;
@@ -608,7 +609,7 @@ __amm_keep NDArray* amm_ndarray_index_components(__amm_take NDArray* arr) {
 }
 
 // TODO: #define DEFINE_REDUCE(name, binary_op, initial_value)
-__amm_give NDArray* amm_ndarray_sum(__amm_take NDArray* arr, int rank) {
+__amm_give NDArray* amm_ndarray_sum(__amm_keep NDArray* arr, int rank) {
   NDArray* carr = amm_ndarray_ascontiguous(arr);
   int* reduced_size = malloc(carr->shape->nrank * sizeof(int));
   int* expand_to = malloc(carr->shape->nrank * sizeof(int));

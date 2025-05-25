@@ -175,7 +175,7 @@ __amm_keep NDArray* amm_ndarray_move(__amm_take NDArray* out, __amm_keep NDArray
 __amm_give NDArray* amm_ndarray_ascontiguous(__amm_keep NDArray* arr);
 
 // ReduceOps
-__amm_give NDArray* amm_ndarray_sum(__amm_take NDArray* arr, int rank);
+__amm_give NDArray* amm_ndarray_sum(__amm_keep NDArray* arr, int rank);
 __amm_give NDArray* amm_ndarray_max(__amm_take NDArray* arr, int rank);
 __amm_give NDArray* amm_ndarray_min(__amm_take NDArray* arr, int rank);
 
