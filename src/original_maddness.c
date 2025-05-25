@@ -491,14 +491,44 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
   amm_ndarray_free(col_losses);
 }
 
+void flatten_bucket_params(Bucket** buckets, int n_buckets_in_gemm, int nsplits, float* offsets, float* scales, int* dims, int* qts) {
+  int n_buckets_per_row = 0;
+  for (int i=0;i<nsplits;i++) n_buckets_per_row = (2 << i) + n_buckets_per_row;
+  amm_assert(offsets == NULL && scales == NULL && dims == NULL && qts == NULL,
+             "flatten_bucket_params: offsets, scales, dims, qts must be allocated before calling this function");
+  offsets = malloc(sizeof(float) * n_buckets_per_row * n_buckets_in_gemm);
+  scales = malloc(sizeof(float) * n_buckets_per_row * n_buckets_in_gemm);
+  dims = malloc(sizeof(int) * n_buckets_per_row * n_buckets_in_gemm);
+  qts  = malloc(sizeof(int) * n_buckets_per_row * n_buckets_in_gemm);
+  int offset = 0;
+  for (int i=0; i<nsplits; i++) {
+    for (int b=0; b<n_buckets_in_gemm; b++) {
+      Bucket* bucket = buckets[b];
+      bucket_map_tree(bucket, i, amm_lambda(void, (Bucket* buck) {
+            offsets[offset + buck->id] = buck->offset;
+            scales[offset + buck->id] = buck->scale;
+            dims[offset + buck->id] = buck->index;
+            qts[offset + buck->id] = buck->threshold_quantized;
+          }));
+      offset += (2 << i);
+    }
+  }
+}
+
 void learn_proto_and_hash_function(OriginalMaddnessGemm* gemm, NDArray* A_offline) {
   init_and_learn_offline(gemm, A_offline); // gemm.buckets = new_bucket; gemm.protos = new_proto;
-  // TODO: optimize-prototypes-ridge!
+  // TODO
+  // - [ ] Implement optimize-ridge function.
 }
 // 1. Prototype Learning
 void amm_om_setAoffline(OriginalMaddnessGemm* gemm, NDArray* A_offline) {
   learn_proto_and_hash_function(gemm, A_offline);
-  // TODO Offload to DISK?
+  // Convert bucket threshold, dim, quantized offsets/scale into NDArray.
+  // TODO: Store into DISK.
+  float* offsets = NULL, *scales = NULL;
+  int* dims = NULL, *qts = NULL;
+  flatten_bucket_params(gemm->buckets, gemm->C, gemm->nsplits, offsets, scales, dims, qts);
+  
 }
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void amm_om_setA(OriginalMaddnessGemm* gemm, NDArray* A) {
