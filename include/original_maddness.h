@@ -8,6 +8,7 @@
 
 #include "amm_dtype.h"
 #include "ndarray.h"
+#include <stdint.h>
 
 typedef struct OriginalMaddnessGemm OriginalMaddnessGemm;
 typedef struct Bucket Bucket;
@@ -19,7 +20,10 @@ struct OriginalMaddnessGemm {
   int nsplits; // Number of splits per codebook
   int n_cluster; // Number of clusters (Usually 16)
   NDArray* quantized_lut; Bucket** buckets; NDArray* protos; // TODO: Quantizes into int8_t ~ binary/ternary?
+  float lut_offset; float lut_scale;
   AMM_DType dtype; // Data type of the input matrix
+  // Learned Parameters which is actually needed for approximation
+  float* scales; float* offsets; uint32_t* splitdims; int8_t* splitvals;
 };
 
 OriginalMaddnessGemm *amm_original_maddness_gemm_alloc(int N, int M, int K, int LDX, int C, int nsplits, AMM_DType dtype);
@@ -42,5 +46,6 @@ Bucket *amm_bucket_alloc();
 void amm_bucket_free(Bucket* bucket);
 
 void amm_om_setAoffline(OriginalMaddnessGemm *mgemm, NDArray* A_offline);
-void amm_om_setA(OriginalMaddnessGemm *mgemm, NDArray* A);
+void amm_om_setA(OriginalMaddnessGemm *mgemm, NDArray* A, NDArray* A_enc);
 void amm_om_setB(OriginalMaddnessGemm *mgemm, NDArray* B);
+void amm_om_gemm(OriginalMaddnessGemm* gemm, NDArray* A_enc, NDArray* out);

@@ -12,6 +12,11 @@
 - The best platform for experiments
 - Supporting Lowert Bits (2 ~ 8bits integers)
 
+### Project Status
+
+- [ ] FP32 Maddness
+- [ ] (Experimental) INT2 ~ INT8 Encoder Training
+
 ### Project Design
 
 

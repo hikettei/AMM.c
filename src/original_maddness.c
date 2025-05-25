@@ -5,16 +5,19 @@
 #include "original_maddness.h"
 #include "utils.h"
 #include "argsort.h"
+#include "comm_original_maddness.h"
 
 #ifdef AMM_C_USE_OMP
 #include <omp.h>
 #endif
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
 #include <float.h>
+#include <tgmath.h>
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
@@ -141,7 +144,7 @@ __amm_give NDArray* ndarray_reverse(__amm_keep NDArray* x) {
   return x2;
 }
 
-float *cumulative_sse(NDArray* xp, NDArray* cumsses) {
+void *cumulative_sse(NDArray* xp, NDArray* cumsses) {
   int N = amm_ndarray_size_of(xp, 0);
   int D = amm_ndarray_size_of(xp, 1);
   
@@ -263,7 +266,29 @@ int optimal_val_splits(NDArray* A_offline, Bucket* bucket, NDArray* total_losses
 
 void learn_quantized_params(Bucket* bucket, NDArray* A_offline, int best_dim) {
   // Appendix B
-  // TODO:
+  NDArray* sorts = sort_rows_based_on_col(A_offline, best_dim);
+  int idx1 = ((int*)sorts->storage)[0];
+  int idx2 = ((int*)sorts->storage)[amm_ndarray_size_of(sorts, 0) - 1];
+  float max_loss = amm_ndarray_aref(float, A_offline, idx1, best_dim);
+  float min_loss = amm_ndarray_aref(float, A_offline, idx2, best_dim);
+  amm_ndarray_free(sorts);
+  float min_val = FLT_MAX;
+  float max_val = -FLT_MAX;
+  for (int i=0; i<bucket->threshold_candidates_count; i++) {
+    float c = ((float*)bucket->threshold_candidates)[i];
+    min_val = MIN(min_val, c);
+    max_val = MAX(max_val, c);
+  }
+  float offset = (min_loss + min_val) / 2.0f;
+  float upper_val = ((max_loss + max_val) / 2.0f) - offset;
+  
+  float l = log2f(254.0f / upper_val);
+  float scale = powf(2.0f, l);
+  //  printf("learn_quantized_params: best_dim=%d, min_loss=%.4f, max_loss=%.4f, min_val=%.4f, max_val=%.4f, offset=%.4f, scale=%.4f\n",
+  //       best_dim, min_loss, max_loss, min_val, max_val, offset, scale);
+  bucket->scale = scale;
+  bucket->offset = offset;
+  bucket->threshold_quantized = (int)roundf((bucket->threshold - offset) * scale);
 }
 
 void bucket_map_tree(Bucket* bucket, int target_tree_level,
@@ -465,28 +490,136 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
   amm_ndarray_slice(gemm->protos, 0, 0, gemm->C-1, 1);
   amm_ndarray_slice(gemm->protos, 1, 0, gemm->n_cluster-1, 1);
   amm_ndarray_slice(gemm->protos, 2, 0, gemm->M-1, 1);
-  printf("All prototypes\n");
-  print_ndarray(gemm->protos);
   // reset slice of protos
   amm_ndarray_free(col_losses);
 }
 
+void flatten_bucket_params(Bucket** buckets, int n_buckets_in_gemm, int nsplits, OriginalMaddnessGemm* gemm) {
+  int n_buckets_per_row = 0;
+  for (int i=0;i<nsplits;i++) n_buckets_per_row = (2 << i) + n_buckets_per_row;
+  amm_assert(gemm->offsets == NULL && gemm->scales == NULL && gemm->splitdims == NULL && gemm->splitvals == NULL,
+             "flatten_bucket_params: offsets, scales, dims, qts must be allocated before calling this function");
+  gemm->offsets = malloc(sizeof(float) * n_buckets_per_row * n_buckets_in_gemm);
+  gemm->scales = malloc(sizeof(float) * n_buckets_per_row * n_buckets_in_gemm);
+  gemm->splitdims = malloc(sizeof(uint32_t) * n_buckets_per_row * n_buckets_in_gemm);
+  gemm->splitvals  = malloc(sizeof(int8_t) * n_buckets_per_row * n_buckets_in_gemm);
+  int offset = 0;
+  for (int i=0; i<nsplits; i++) {
+    for (int b=0; b<n_buckets_in_gemm; b++) {
+      Bucket* bucket = buckets[b];
+      bucket_map_tree(bucket, i, amm_lambda(void, (Bucket* buck) {
+            gemm->offsets[offset + buck->id] = buck->offset;
+            gemm->scales[offset + buck->id] = buck->scale;
+            gemm->splitdims[offset + buck->id] = buck->index;
+            gemm->splitvals[offset + buck->id] = buck->threshold_quantized;
+          }));
+      offset += (2 << i);
+    }
+  }
+}
+
 void learn_proto_and_hash_function(OriginalMaddnessGemm* gemm, NDArray* A_offline) {
   init_and_learn_offline(gemm, A_offline); // gemm.buckets = new_bucket; gemm.protos = new_proto;
-  // TODO: optimize-prototypes-ridge!
+  // TODO
+  // - [ ] Implement optimize-ridge function.
 }
 // 1. Prototype Learning
 void amm_om_setAoffline(OriginalMaddnessGemm* gemm, NDArray* A_offline) {
   learn_proto_and_hash_function(gemm, A_offline);
-  // TODO Offload to DISK?
+  // Convert bucket threshold, dim, quantized offsets/scale into NDArray.
+  flatten_bucket_params(gemm->buckets, gemm->C, gemm->nsplits, gemm);
+  // TODO: Store learned offsets/scales/splitdims/splitvals into DISK for inference dump.
 }
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-void amm_om_setA(OriginalMaddnessGemm* gemm, NDArray* A) {
-  // mithral-encode-fp32-t
+void amm_om_setA(OriginalMaddnessGemm* gemm, NDArray* A, NDArray* out) {
+  encode_m_f32((float*)A->storage, amm_ndarray_size_of(A, 0), amm_ndarray_size_of(A, 1), amm_ndarray_stride_of(A, 0), amm_ndarray_stride_of(A, 1),
+               gemm->C, gemm->nsplits, gemm->splitdims, gemm->splitvals, gemm->scales, gemm->offsets, (uint8_t*)out->storage);
 }
 
 void amm_om_setB(OriginalMaddnessGemm* gemm, NDArray* B) {
-  // scan and compute lut
+  // Create a LUT across A_offline(gemm->proto) and B
+  int M = amm_ndarray_size_of(B, 0);
+  int D = amm_ndarray_size_of(B, 1);
+  NDArray* out_lut_f32 = amm_ndarray_zeros(amm_make_shape(3, (int[]){M, gemm->C, gemm->n_cluster}), AMM_DTYPE_F32);
+  NDArray* all_proto = gemm->protos;
+
+  float* b_vec = (float*)B->storage;
+  float* proto_vec = (float*)all_proto->storage;
+
+  int ldb1 = amm_ndarray_stride_of(B, 0); // Note: Transpose B?
+  int ldb2 = amm_ndarray_stride_of(B, 1);
+
+  int ldp1 = amm_ndarray_stride_of(all_proto, 0);
+  int ldp2 = amm_ndarray_stride_of(all_proto, 1);
+  int ldp3 = amm_ndarray_stride_of(all_proto, 2);
+
+  int ldo1 = amm_ndarray_stride_of(out_lut_f32, 0);
+  int ldo2 = amm_ndarray_stride_of(out_lut_f32, 1);
+  int ldo3 = amm_ndarray_stride_of(out_lut_f32, 2);
+
+  // TODO: Optimize the following loop (if it is fairly fast it is good enough)
+#ifdef AMM_C_USE_OMP
+#pragma omp parallel for
+#endif
+  for (int i=0; i<M;i++) {
+    // (B[i].reshape(1, 1, D) * proto[C, K, D]).sum(axis=2)
+    for (int c=0; c<gemm->C; c++) {
+      for (int k=0; k<gemm->n_cluster; k++) {
+        float acc = 0.0f;
+        for (int d=0; d<D; d++) {
+          acc += b_vec[i * ldb1 + d * ldb2] * proto_vec[c * ldp1 + k * ldp2 + d * ldp3];
+        }
+        ((float*)out_lut_f32->storage)[i * ldo1 + c * ldo2 + k * ldo3] = acc;
+      }
+    }
+  }
+  // TODO: maddness quantize luts should have at least BlockwiseQuantization, not scalar.
+  // Quantization
+  NDArray* out_lut_q = amm_ndarray_zeros(amm_make_shape(3, (int[]){M, gemm->C, gemm->n_cluster}), AMM_DTYPE_I64);
+  NDArray* mins = amm_ndarray_zeros(amm_make_shape(3, (int[]){1, gemm->C, 1}), AMM_DTYPE_F32);
+  float gap = -FLT_MAX;
+  float offset = 0.0f;
+  for (int c=0; c<gemm->C; c++) {
+    float acc1 = -FLT_MAX;
+    float acc2 = FLT_MAX;
+    for (int k=0; k<gemm->n_cluster; k++) {
+      for (int i=0; i<M; i++) {
+        float val = ((float*)out_lut_f32->storage)[i * ldo1 + c * ldo2 + k * ldo3];
+        acc1 = MAX(acc1, val);
+        acc2 = MIN(acc2, val);
+      }
+    }
+    ((float*)mins->storage)[c] = acc2;
+    offset += acc2;
+    gap = MAX(gap, acc1 - acc2);
+  }
+  float exponent = ceilf(log2f(gap));
+  float scale = powf(2.0f, -exponent);
+  scale *= 255.5f - 1e-10;
+  printf("gap: %.4f, exponent: %.4f, scale: %.4f\n", gap, exponent, scale);
+  amm_ndarray_expand(mins, (int[]){M, 1, gemm->n_cluster});
+  amm_ndarray_apply_binary(float, float, out[out_i] = 0.5f + (scale * (out[out_i] - x[x_i])), out_lut_f32, mins);
+  amm_ndarray_apply_binary(int64_t, float, out[out_i] = (int64_t)x[x_i], out_lut_q, out_lut_f32);
+#if defined(AMM_C_SAFE_MODE)
+  int64_t min_val = INT64_MAX;
+  int64_t max_val = INT64_MIN;
+  for (int i=0; i<M*gemm->C*gemm->n_cluster; i++) {
+    min_val = MIN(min_val, ((int64_t*)out_lut_q->storage)[i]);
+    max_val = MAX(max_val, ((int64_t*)out_lut_q->storage)[i]);
+  }
+  amm_assert(min_val >= 0 && max_val <= 255, "Quantized LUT values are out of range [0, 255], min: %lld, max: %lld", min_val, max_val);
+#endif
+  gemm->quantized_lut = out_lut_q;
+  gemm->lut_offset = offset;
+  gemm->lut_scale = scale;
+  amm_ndarray_free(out_lut_f32);
+  amm_ndarray_free(mins);
 }
 
+
+void amm_om_gemm(OriginalMaddnessGemm* gemm, NDArray* A_enc, NDArray* out) {
+  // Approximate gemm across A_enc and B
+  mithral_scan((uint8_t*)A_enc->storage, gemm->n_cluster, (uint8_t*)gemm->quantized_lut->storage, (uint8_t*)out->storage,
+               amm_ndarray_size_of(A_enc, 0), 16, 0);
+}
 #endif // AMM_C_ALGO_ORIGINAL_MADDNESS
