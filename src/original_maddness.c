@@ -19,7 +19,7 @@
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 // ~~ Alloc/Free ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-OriginalMaddnessGemm *amm_original_maddness_gemm_alloc(int N, int M, int K, int LDX, int C, int n_cluster, int nsplits, AMM_DType dtype) {
+OriginalMaddnessGemm *amm_original_maddness_gemm_alloc(int N, int M, int K, int LDX, int C, int nsplits, AMM_DType dtype) {
   struct OriginalMaddnessGemm *mgemm = malloc(sizeof *mgemm);
   if (mgemm == NULL) {
     fprintf(stderr, "Failed to allocate memory for OriginalMaddnessGemm\n");
@@ -27,7 +27,7 @@ OriginalMaddnessGemm *amm_original_maddness_gemm_alloc(int N, int M, int K, int 
   }
   mgemm->N = N; mgemm->M = M; mgemm-> K = K;
   mgemm->LDX = LDX;
-  mgemm->C = C; mgemm->nsplits = nsplits; mgemm->n_cluster = n_cluster;
+  mgemm->C = C; mgemm->nsplits = nsplits; mgemm->n_cluster = 2 << (nsplits-1);
   // TODO: func* allocator = {... if dtype = ...}
   mgemm->quantized_lut = NULL; mgemm->buckets = NULL; mgemm->protos = NULL; // TODO: Initialize quantized LUT if needed
   mgemm->dtype = dtype;
@@ -420,6 +420,7 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
   amm_assert(amm_ndarray_rank(A_offline) == 2, "init_and_learn_offline_fp32: A_offline must be 2d ndarray");
   amm_assert((gemm->M % gemm->C) == 0, "init_and_learn_offline_fp32: M should be divisible by C");
   int steps = gemm->M / gemm->C;
+  int nrows = amm_ndarray_size_of(A_offline, 0);
   // Allocation
   if (gemm->buckets == NULL) gemm->buckets = malloc(sizeof(Bucket*) * gemm->M / steps);
   if (gemm->protos == NULL)  gemm->protos = amm_ndarray_zeros(amm_make_shape(3, (int[]){gemm->C, gemm->n_cluster, gemm->M}), A_offline->dtype);
@@ -434,31 +435,36 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
     // as well as prototype
     amm_ndarray_slice(A_offline, 1, col_i, col_i+steps-1, 1);
     gemm->buckets[nth] = learn_binary_tree_splits(A_offline, col_losses, col_i, steps, gemm->nsplits);
+    NDArray* centroids = amm_ndarray_zeros(amm_make_shape(2, (int[]){1, gemm->M}), AMM_DTYPE_F32);
     bucket_map_tree(gemm->buckets[nth], gemm->nsplits,
                     amm_lambda(void, (Bucket* buck) {
                         amm_assert(buck->n_indices > 0, "buck->id %d", buck->id);
-                        NDArray* region = amm_ndarray_ascontiguous(A_offline);
-                        NDArray* shuffled = amm_ndarray_view_index(region, 0, buck->n_indices, buck->indices);
-                        NDArray* c = amm_ndarray_ascontiguous(shuffled);
-                        NDArray* m = amm_ndarray_sum(c, 0);
+                        amm_ndarray_apply_unary(float, x[x_i] = 0.0f, centroids);
+                        
+                        NDArray* m = amm_ndarray_sum(A_offline, 0);
                         amm_ndarray_apply_unary(float, x[x_i] /= (float)buck->n_indices, m);
-                        amm_ndarray_sub(shuffled, amm_ndarray_expand(m, (int[]){buck->n_indices, 1}));
-                        amm_ndarray_slice(m, 0, 0, 0, 1);
+                        
+                        amm_ndarray_slice(centroids, 1, col_i, col_i+steps-1, 1);
+                        
+                        amm_ndarray_move(centroids, m);
+                        amm_ndarray_slice(centroids, 1, 0, gemm->M, 1);
+                        amm_ndarray_view_index(A_offline, 0, buck->n_indices, buck->indices);
+                        amm_ndarray_expand(centroids, (int[]){buck->n_indices, 1});
+                        amm_ndarray_sub(A_offline, centroids);
+                        amm_ndarray_slice(A_offline, 0, 0, nrows-1, 1);
                         amm_assert(buck->id >= 0 && buck->id < gemm->n_cluster, "The bucket id %d is out range of [0, %d).", buck->id, gemm->n_cluster);
                         amm_ndarray_slice(gemm->protos, 0, nth, nth, 1);
                         amm_ndarray_slice(gemm->protos, 1, buck->id, buck->id, 1);
-                        amm_ndarray_slice(gemm->protos, 2, col_i, col_i+steps-1, 1);
-                        amm_ndarray_reshape(m, amm_make_shape(3, (int[]){1, 1, steps}));
-                        // PROTOS[C, BUCKET_ID] = CLUSTER
-                        amm_ndarray_move(gemm->protos, m); // TODO: A bug in viewed move?
-                        amm_ndarray_free(shuffled);
-                        amm_ndarray_free(c);
+                        amm_ndarray_reshape(centroids, amm_make_shape(3, (int[]){1, 1, gemm->M}));
+                        amm_ndarray_move(gemm->protos, centroids);
+                        amm_ndarray_reshape(centroids, amm_make_shape(2, (int[]){1, gemm->M}));
                         amm_ndarray_free(m);
                       }));
+    amm_ndarray_free(centroids);
   }
   amm_ndarray_slice(gemm->protos, 0, 0, gemm->C-1, 1);
   amm_ndarray_slice(gemm->protos, 1, 0, gemm->n_cluster-1, 1);
-  amm_ndarray_slice(gemm->protos, 2, 0, gemm->M-1, 1);  
+  amm_ndarray_slice(gemm->protos, 2, 0, gemm->M-1, 1);
   printf("All prototypes\n");
   print_ndarray(gemm->protos);
   // reset slice of protos
@@ -467,19 +473,20 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
 
 void learn_proto_and_hash_function(OriginalMaddnessGemm* gemm, NDArray* A_offline) {
   init_and_learn_offline(gemm, A_offline); // gemm.buckets = new_bucket; gemm.protos = new_proto;
+  // TODO: optimize-prototypes-ridge!
 }
 // 1. Prototype Learning
 void amm_om_setAoffline(OriginalMaddnessGemm* gemm, NDArray* A_offline) {
   learn_proto_and_hash_function(gemm, A_offline);
+  // TODO Offload to DISK?
 }
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 void amm_om_setA(OriginalMaddnessGemm* gemm, NDArray* A) {
-  
+  // mithral-encode-fp32-t
 }
 
 void amm_om_setB(OriginalMaddnessGemm* gemm, NDArray* B) {
-
+  // scan and compute lut
 }
 
 #endif // AMM_C_ALGO_ORIGINAL_MADDNESS

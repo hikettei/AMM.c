@@ -231,6 +231,25 @@ void test_ndarray_sum() {
   amm_ndarray_free(arr); amm_ndarray_free(out);
   printf("Passed: test_ndarray_sum\n");
 }
+
+void test_slice_fail_case() {
+  NDArray* arr = amm_ndarray_zeros(amm_make_row_major_shape(3, (int[]){5, 5, 5}), AMM_DTYPE_F32);
+  NDArray* arr1 = amm_ndarray_zeros(amm_make_row_major_shape(1, (int[]){5}), AMM_DTYPE_F32);
+  amm_ndarray_apply_unary(float, x[x_i] = 1.0f, arr1);
+  amm_ndarray_reshape(arr1, amm_make_row_major_shape(3, (int[]){1, 1, 5}));
+  for (int i=0; i<5; i++) {
+    for (int j=0; j<5; j++) {
+      amm_ndarray_slice(arr, 0, i, i, 1);
+      amm_ndarray_slice(arr, 1, j, j, 1);
+      amm_ndarray_move(arr, arr1);
+    }
+  }
+  amm_ndarray_slice(arr, 0, 0, 4, 1);
+  amm_ndarray_slice(arr, 1, 0, 4, 1);
+  for (int i=0; i<5*5*5; i++)
+    amm_assert(((float*)arr->storage)[i] == 1.0f, "Invalid value at (%d): expected %f", i, ((float*)arr->storage)[i]);
+  printf("Passed: test_slice_fail_case\n");
+}
 // TODO: Complicated View Testing w/ 3D Array (which ensures the validity of shape simplifier)
 
 int main(void) {
@@ -247,5 +266,6 @@ int main(void) {
   test_ndarray_slice_5();
   test_ndarray_slice_6();
   test_ndarray_sum();
+  test_slice_fail_case();
   
 }
