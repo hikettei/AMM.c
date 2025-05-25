@@ -269,11 +269,11 @@ void learn_quantized_params(Bucket* bucket, NDArray* A_offline, int best_dim) {
   NDArray* sorts = sort_rows_based_on_col(A_offline, best_dim);
   int idx1 = ((int*)sorts->storage)[0];
   int idx2 = ((int*)sorts->storage)[amm_ndarray_size_of(sorts, 0) - 1];
-  float min_loss = amm_ndarray_aref(float, A_offline, idx1, best_dim);
-  float max_loss = amm_ndarray_aref(float, A_offline, idx2, best_dim);
+  float max_loss = amm_ndarray_aref(float, A_offline, idx1, best_dim);
+  float min_loss = amm_ndarray_aref(float, A_offline, idx2, best_dim);
   amm_ndarray_free(sorts);
-  float min_val = -FLT_MAX;
-  float max_val = FLT_MAX;
+  float min_val = FLT_MAX;
+  float max_val = -FLT_MAX;
   for (int i=0; i<bucket->threshold_candidates_count; i++) {
     float c = ((float*)bucket->threshold_candidates)[i];
     min_val = MIN(min_val, c);
@@ -284,7 +284,8 @@ void learn_quantized_params(Bucket* bucket, NDArray* A_offline, int best_dim) {
   
   float l = log2f(254.0f / upper_val);
   float scale = powf(2.0f, l);
-  
+  //  printf("learn_quantized_params: best_dim=%d, min_loss=%.4f, max_loss=%.4f, min_val=%.4f, max_val=%.4f, offset=%.4f, scale=%.4f\n",
+  //       best_dim, min_loss, max_loss, min_val, max_val, offset, scale);
   bucket->scale = scale;
   bucket->offset = offset;
   bucket->threshold_quantized = (int)roundf((bucket->threshold - offset) * scale);
@@ -531,10 +532,10 @@ void amm_om_setAoffline(OriginalMaddnessGemm* gemm, NDArray* A_offline) {
 }
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void amm_om_setA(OriginalMaddnessGemm* gemm, NDArray* A, NDArray* out) {
-  for (int i=0; i<100; i++) {
-    printf("splitdim %d, splitval %d, scale %f, offset %f\n",
-           gemm->splitdims[i], gemm->splitvals[i], gemm->scales[i], gemm->offsets[i]);
-  }
+  // for (int i=0; i<100; i++) {
+  //printf("splitdim %d, splitval %d, scale %f, offset %f\n",
+           //       gemm->splitdims[i], gemm->splitvals[i], gemm->scales[i], gemm->offsets[i]);
+    //  }
   encode_m_f32((float*)A->storage, amm_ndarray_size_of(A, 0), amm_ndarray_size_of(A, 1), amm_ndarray_stride_of(A, 0), amm_ndarray_stride_of(A, 1),
                gemm->C, gemm->nsplits, gemm->splitdims, gemm->splitvals, gemm->scales, gemm->offsets, (int8_t*)out->storage);
 }
