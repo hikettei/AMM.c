@@ -15,7 +15,6 @@ typedef struct Bucket Bucket;
 
 struct OriginalMaddnessGemm {
   int N, M, K; // A[N M] @ B[M K]  
-  int LDX; // Column Major or Row Major.
   int C; // Number of Codebooks
   int nsplits; // Number of splits per codebook
   int n_cluster; // Number of clusters (Usually 16)
@@ -26,7 +25,7 @@ struct OriginalMaddnessGemm {
   float* scales; float* offsets; uint32_t* splitdims; int8_t* splitvals;
 };
 
-OriginalMaddnessGemm *amm_original_maddness_gemm_alloc(int N, int M, int K, int LDX, int C, int nsplits, AMM_DType dtype);
+OriginalMaddnessGemm *amm_original_maddness_gemm_alloc(int N, int M, int K, int C, int nsplits, AMM_DType dtype);
 void amm_original_maddness_gemm_free(OriginalMaddnessGemm *mgemm);
 
 struct Bucket {

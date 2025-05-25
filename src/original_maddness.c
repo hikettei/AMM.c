@@ -22,14 +22,13 @@
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 // ~~ Alloc/Free ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-OriginalMaddnessGemm *amm_original_maddness_gemm_alloc(int N, int M, int K, int LDX, int C, int nsplits, AMM_DType dtype) {
+OriginalMaddnessGemm *amm_original_maddness_gemm_alloc(int N, int M, int K, int C, int nsplits, AMM_DType dtype) {
   struct OriginalMaddnessGemm *mgemm = malloc(sizeof *mgemm);
   if (mgemm == NULL) {
     fprintf(stderr, "Failed to allocate memory for OriginalMaddnessGemm\n");
     return NULL;
   }
   mgemm->N = N; mgemm->M = M; mgemm-> K = K;
-  mgemm->LDX = LDX;
   mgemm->C = C; mgemm->nsplits = nsplits; mgemm->n_cluster = 2 << (nsplits-1);
   // TODO: func* allocator = {... if dtype = ...}
   mgemm->quantized_lut = NULL; mgemm->buckets = NULL; mgemm->protos = NULL; // TODO: Initialize quantized LUT if needed

@@ -51,13 +51,14 @@ void matmul(NDArray* A, NDArray* B, NDArray* out) {
 // - [ ] Complete Encoder/Decoder/Gemm
 //  - [ ] Revisit the API Design
 // - [ ] Optimize FP32 Implementation for AVX2/Metal GPU
+// - [ ] Encoder Test: Decode after setA, 
 int main() {
   // Maddness Workflow
   // 1, Prototype Learning
   // Initialize matrix sampled from gaussian dist.
-  OriginalMaddnessGemm* mgemm = amm_original_maddness_gemm_alloc(128, 128, 128, 1, 16, 4, AMM_DTYPE_F32);
+  OriginalMaddnessGemm* mgemm = amm_original_maddness_gemm_alloc(256, 256, 256, 4, 4, AMM_DTYPE_F32);
   // We are going to approximate A[N M] @ B[M K]
-  NDArray *A_offline = randn(mgemm->N, mgemm->M);
+  NDArray *A_offline = randn(128, mgemm->M);
   // for debug
   // amm_ndarray_index_components(A_offline);
   NDArray *A         = randn(mgemm->N, mgemm->M);
@@ -74,6 +75,7 @@ int main() {
   begin = clock();
   amm_om_setA(mgemm, A, A_enc); // Encode A
   printf("Encoding A took %f seconds\n", (double)(clock() - begin) / CLOCKS_PER_SEC);
+  print_ndarray(A_enc);
   
   begin = clock();
   amm_om_setB(mgemm, B); // Encode B
@@ -98,8 +100,4 @@ int main() {
   amm_original_maddness_gemm_free(mgemm);
 
   amm_ndarray_free(A_offline); amm_ndarray_free(A); amm_ndarray_free(B);
-  
-  // 2, Encoding Function
-  // 3, Table Construction
-  // 4, Aggregation
 }
