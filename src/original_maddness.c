@@ -528,21 +528,57 @@ void amm_om_setAoffline(OriginalMaddnessGemm* gemm, NDArray* A_offline) {
   learn_proto_and_hash_function(gemm, A_offline);
   // Convert bucket threshold, dim, quantized offsets/scale into NDArray.
   flatten_bucket_params(gemm->buckets, gemm->C, gemm->nsplits, gemm);
-  // TODO: Store learned offsets/scales/splitdims/splitvals into DISK.
+  // TODO: Store learned offsets/scales/splitdims/splitvals into DISK for inference dump.
 }
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void amm_om_setA(OriginalMaddnessGemm* gemm, NDArray* A, NDArray* out) {
-  // for (int i=0; i<100; i++) {
-  //printf("splitdim %d, splitval %d, scale %f, offset %f\n",
-           //       gemm->splitdims[i], gemm->splitvals[i], gemm->scales[i], gemm->offsets[i]);
-    //  }
   encode_m_f32((float*)A->storage, amm_ndarray_size_of(A, 0), amm_ndarray_size_of(A, 1), amm_ndarray_stride_of(A, 0), amm_ndarray_stride_of(A, 1),
                gemm->C, gemm->nsplits, gemm->splitdims, gemm->splitvals, gemm->scales, gemm->offsets, (int8_t*)out->storage);
   print_ndarray(out);
 }
 
 void amm_om_setB(OriginalMaddnessGemm* gemm, NDArray* B) {
-  // scan and compute lut
+  // Create a LUT across A_offline(gemm->proto) and B
+  int M = amm_ndarray_size_of(B, 0);
+  int D = amm_ndarray_size_of(B, 1);
+  NDArray* out_lut_f32 = amm_ndarray_zeros(amm_make_shape(3, (int[]){M, gemm->C, gemm->n_cluster}), AMM_DTYPE_F32);
+  NDArray* all_proto = gemm->protos;
+
+  float* b_vec = (float*)B->storage;
+  float* proto_vec = (float*)all_proto->storage;
+
+  int ldb1 = amm_ndarray_stride_of(B, 0); // Note: Transpose B?
+  int ldb2 = amm_ndarray_stride_of(B, 1);
+
+  int ldp1 = amm_ndarray_stride_of(all_proto, 0);
+  int ldp2 = amm_ndarray_stride_of(all_proto, 1);
+  int ldp3 = amm_ndarray_stride_of(all_proto, 2);
+
+  int ldo1 = amm_ndarray_stride_of(out_lut_f32, 0);
+  int ldo2 = amm_ndarray_stride_of(out_lut_f32, 1);
+  int ldo3 = amm_ndarray_stride_of(out_lut_f32, 2);
+
+  // TODO: Optimize the following loop (if it is fairly fast it is good enough)
+#ifdef AMM_C_USE_OMP
+#pragma omp parallel for
+#endif
+  for (int i=0; i<M;i++) {
+    // (B[i].reshape(1, 1, D) * proto[C, K, D]).sum(axis=2)
+    for (int c=0; c<gemm->C; c++) {
+      for (int k=0; k<gemm->n_cluster; k++) {
+        float acc = 0.0f;
+        for (int d=0; d<D; d++) {
+          acc += b_vec[i * ldb1 + d * ldb2] * proto_vec[c * ldp1 + k * ldp2 + d * ldp3];
+        }
+        ((float*)out_lut_f32->storage)[i * ldo1 + c * ldo2 + k * ldo3] = acc;
+      }
+    }
+  }
+  print_ndarray(out_lut_f32);
+  // TODO: maddness quantize luts should have at least BlockwiseQuantization, not scalar.
+
+  // Each row of B.reshape(1, 1, -1) @ proto[C, K, D]
+  //  NDArray* out_lut_q   = amm_ndarray_zeros(amm_make_shape(3, (int[]){M, gemm->C, gemm->n_cluster}), AMM_DTYPE_U8);
 }
 
 #endif // AMM_C_ALGO_ORIGINAL_MADDNESS

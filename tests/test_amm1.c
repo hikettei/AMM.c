@@ -17,6 +17,12 @@ NDArray* randn(int i, int j) {
 }
 
 // TODO:
+// - [ ] Stablize the implementation, no segv.
+// - [ ] Optimize setAoffline Training speed by improving impls, utilizing simd.
+// - [ ] Optimize LUTs by Ridge (implement ridge.c by only using ndarray.c)
+// - [ ] Complete Encoder/Decoder/Gemm
+//  - [ ] Revisit the API Design
+// - [ ] Optimize FP32 Implementation for AVX2/Metal GPU
 int main() {
   // Maddness Workflow
   // 1, Prototype Learning
@@ -34,20 +40,24 @@ int main() {
   print_ndarray(A_offline);
 
   // 1. SET_A_OFFLINE
-  amm_om_setAoffline(mgemm, A_offline);
-
   clock_t begin = clock();
+  amm_om_setAoffline(mgemm, A_offline);
+  printf("Offline Training took %f seconds\n", (double)(clock() - begin) / CLOCKS_PER_SEC);
+ 
+  begin = clock();
   amm_om_setA(mgemm, A, A_enc); // Encode A
   printf("Encoding A took %f seconds\n", (double)(clock() - begin) / CLOCKS_PER_SEC);
   
+  begin = clock();
   amm_om_setB(mgemm, B); // Encode B
+  printf("Encoding B took %f seconds\n", (double)(clock() - begin) / CLOCKS_PER_SEC);
+
+  // Training & LUT Creation Finished
+  // Compute Online Maddness GEMM
   
   amm_original_maddness_gemm_free(mgemm);
 
   amm_ndarray_free(A_offline); amm_ndarray_free(A); amm_ndarray_free(B);
-        
-  // 2. SET_A
-  // 3. SET_B
   
   // 2, Encoding Function
   // 3, Table Construction
