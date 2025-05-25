@@ -578,6 +578,7 @@ void amm_om_setB(OriginalMaddnessGemm* gemm, NDArray* B) {
   NDArray* out_lut_q = amm_ndarray_zeros(amm_make_shape(3, (int[]){M, gemm->C, gemm->n_cluster}), AMM_DTYPE_I64);
   NDArray* mins = amm_ndarray_zeros(amm_make_shape(3, (int[]){1, gemm->C, 1}), AMM_DTYPE_F32);
   float gap = -FLT_MAX;
+  float offset = 0.0f;
   for (int c=0; c<gemm->C; c++) {
     float acc1 = -FLT_MAX;
     float acc2 = FLT_MAX;
@@ -589,6 +590,7 @@ void amm_om_setB(OriginalMaddnessGemm* gemm, NDArray* B) {
       }
     }
     ((float*)mins->storage)[c] = acc2;
+    offset += acc2;
     gap = MAX(gap, acc1 - acc2);
   }
   float exponent = ceilf(log2f(gap));
@@ -608,6 +610,8 @@ void amm_om_setB(OriginalMaddnessGemm* gemm, NDArray* B) {
   amm_assert(min_val >= 0 && max_val <= 255, "Quantized LUT values are out of range [0, 255], min: %lld, max: %lld", min_val, max_val);
 #endif
   gemm->quantized_lut = out_lut_q;
+  gemm->lut_offset = offset;
+  gemm->lut_scale = scale;
   amm_ndarray_free(out_lut_f32);
   amm_ndarray_free(mins);
 }
