@@ -18,10 +18,12 @@ void encode_m_f32(const float *X, int m, int n, int ldx1, int ldx2,
   // Parallel
   // X   = [M, N]
   // out = [M, C]
+  int codebooks_per_split = 2 << (nsplits-1);
   for (int c=0; c<C; c++) {
-    int base = c * nsplits;
+    int base = c * codebooks_per_split;
     for (int row = 0; row < m; ++row) {
       int code = 0;
+      // MaddnessHash
       for (int s = 0; s < nsplits; ++s) {
         uint32_t dim = splitdims[base + s];
         float x = X[row * ldx1 + dim * ldx2];
@@ -30,6 +32,8 @@ void encode_m_f32(const float *X, int m, int n, int ldx1, int ldx2,
         int bit = (v > tbl[code]) ? 1 : 0;
         code = (code << 1) | bit;
       }
+      // code = 1 ~ 2 << nsplits;
+      // TODO: Add Offsets?
       out[row * C + c] = (uint8_t)code;
     }
   }

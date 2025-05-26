@@ -50,7 +50,8 @@ Bucket *amm_bucket_alloc() {
     fprintf(stderr, "Failed to allocate memory for Bucket\n");
     return NULL;
   }
-  bucket->tree_level = 0; bucket->id = 0;
+  bucket->tree_level = 0;
+  bucket->id = 1; // bucket id MUST start from 1.
   bucket->scale = 0.0f; bucket->offset = 0.0f;
   bucket->threshold_quantized = 0;
   bucket->index = 0;
@@ -297,11 +298,9 @@ void bucket_map_tree(Bucket* bucket, int target_tree_level,
                      void (^f)(Bucket*)
 #endif
                      ) {
-  if (bucket->tree_level == target_tree_level) f(bucket);
-  else {
-    if (bucket->left_child) bucket_map_tree(bucket->left_child, target_tree_level, f);
-    if (bucket->right_child) bucket_map_tree(bucket->right_child, target_tree_level, f);
-  }
+  if (target_tree_level == -1 || bucket->tree_level == target_tree_level) f(bucket);
+  if (bucket->left_child) bucket_map_tree(bucket->left_child, target_tree_level, f);
+  if (bucket->right_child) bucket_map_tree(bucket->right_child, target_tree_level, f);
 }
 
 void optimize_split_thresholds(Bucket* bucket, int min_idx, int best_dim, int nth_split, NDArray* A_offline) {
@@ -421,11 +420,17 @@ B(3, 1)  B(3, 2)   B(3, 3)  B(3, 4)    | nth=2
     optimize_split_thresholds(bucket, min_idx, best_dim, nth_split, A_offline);
     optimize_bucket_splits(bucket, best_dim, A_offline);
   }
-  
   amm_ndarray_free(col_losses_i); amm_ndarray_free(total_losses);
   return bucket;
 }
 
+void print_buckets(Bucket* bucket) {
+  if (bucket->tree_level == 0) { printf("\nBucketTree:\n"); }
+  for (int c=0; c<bucket->tree_level; c++) printf("  ");
+  printf("Bucket(%d, dim=%d, threshold=%f, scale=%f, offset=%f)\n", bucket->id, bucket->index, bucket->threshold, bucket->scale, bucket->offset);
+  if (bucket->left_child) print_buckets(bucket->left_child);
+  if (bucket->right_child) print_buckets(bucket->right_child);
+}
 // Protoype Learning
 void init_and_learn_offline(OriginalMaddnessGemm* gemm, NDArray* A_offline) {
   /*
@@ -459,6 +464,7 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
     // as well as prototype
     amm_ndarray_slice(A_offline, 1, col_i, col_i+steps-1, 1);
     gemm->buckets[nth] = learn_binary_tree_splits(A_offline, col_losses, col_i, steps, gemm->nsplits);
+    // for (int nth=0; nth<gemm->nsplits; nth++) print_buckets(gemm->buckets[0]);
     NDArray* centroids = amm_ndarray_zeros(amm_make_shape(2, (int[]){1, gemm->M}), AMM_DTYPE_F32);
     bucket_map_tree(gemm->buckets[nth], gemm->nsplits,
                     amm_lambda(void, (Bucket* buck) {
@@ -476,11 +482,12 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
                         amm_ndarray_expand(centroids, (int[]){buck->n_indices, 1});
                         amm_ndarray_sub(A_offline, centroids);
                         amm_ndarray_slice(A_offline, 0, 0, nrows-1, 1);
-                        amm_assert(buck->id >= 0 && buck->id < gemm->n_cluster, "The bucket id %d is out range of [0, %d).", buck->id, gemm->n_cluster);
+                        
                         amm_ndarray_slice(gemm->protos, 0, nth, nth, 1);
                         amm_ndarray_slice(gemm->protos, 1, buck->id, buck->id, 1);
                         amm_ndarray_reshape(centroids, amm_make_shape(3, (int[]){1, 1, gemm->M}));
                         amm_ndarray_move(gemm->protos, centroids);
+                        
                         amm_ndarray_reshape(centroids, amm_make_shape(2, (int[]){1, gemm->M}));
                         amm_ndarray_free(m);
                       }));
@@ -493,30 +500,31 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
   amm_ndarray_free(col_losses);
 }
 
-void flatten_bucket_params(Bucket** buckets, int n_buckets_in_gemm, int nsplits, OriginalMaddnessGemm* gemm) {
-  int n_buckets_per_row = 0;
-  for (int i=0;i<nsplits;i++) n_buckets_per_row = (2 << i) + n_buckets_per_row;
+void flatten_bucket_params(Bucket** buckets, OriginalMaddnessGemm* gemm) {
+  int n_buckets_per_split = 2 << (gemm->nsplits - 1); // 2^nsplits = total number of buckets per split
   amm_assert(gemm->offsets == NULL && gemm->scales == NULL && gemm->splitdims == NULL && gemm->splitvals == NULL,
              "flatten_bucket_params: offsets, scales, dims, qts must be allocated before calling this function");
-  gemm->offsets = malloc(sizeof(float) * n_buckets_per_row * n_buckets_in_gemm);
-  gemm->scales = malloc(sizeof(float) * n_buckets_per_row * n_buckets_in_gemm);
-  gemm->splitdims = malloc(sizeof(uint32_t) * n_buckets_per_row * n_buckets_in_gemm);
-  gemm->splitvals  = malloc(sizeof(int8_t) * n_buckets_per_row * n_buckets_in_gemm);
-  int offset = 0;
-  for (int i=0; i<nsplits; i++) {
-    for (int b=0; b<n_buckets_in_gemm; b++) {
-      Bucket* bucket = buckets[b];
-      bucket_map_tree(bucket, i, amm_lambda(void, (Bucket* buck) {
-            gemm->offsets[offset + buck->id] = buck->offset;
-            gemm->scales[offset + buck->id] = buck->scale;
-            gemm->splitdims[offset + buck->id] = buck->index;
-            gemm->splitvals[offset + buck->id] = buck->threshold_quantized;
-          }));
-      offset += (2 << i);
-    }
+  gemm->offsets = malloc(sizeof(float) * gemm->C * n_buckets_per_split);
+  gemm->scales = malloc(sizeof(float) * gemm->C * n_buckets_per_split);
+  gemm->splitdims = malloc(sizeof(uint32_t) * gemm->C * n_buckets_per_split);
+  gemm->splitvals  = malloc(sizeof(int8_t) * gemm->C * n_buckets_per_split);
+  printf("n_buckets_per_split: %d, %d\n", n_buckets_per_split, gemm->C * n_buckets_per_split);
+  for (int c=0; c<gemm->C; c++) {
+    Bucket* bucket = buckets[c];
+    amm_assert(bucket->id == 1, "flatten_bucket_params: bucket->id must be 1 for the first bucket");
+    int base = c * n_buckets_per_split;
+    bucket_map_tree(bucket, -1, amm_lambda(void, (Bucket* buck)) {
+        int idx = base + buck->id;
+        if (buck->id <= n_buckets_per_split) {
+          amm_assert(buck->id >= 1, "bucket id must be greater than 1.");
+          gemm->offsets[idx] = buck->offset;
+          gemm->scales[idx] = buck->scale;
+          gemm->splitdims[idx] = buck->index;
+          gemm->splitvals[idx] = buck->threshold_quantized;
+        }
+      });
   }
 }
-
 void learn_proto_and_hash_function(OriginalMaddnessGemm* gemm, NDArray* A_offline) {
   init_and_learn_offline(gemm, A_offline); // gemm.buckets = new_bucket; gemm.protos = new_proto;
   // TODO
@@ -526,7 +534,7 @@ void learn_proto_and_hash_function(OriginalMaddnessGemm* gemm, NDArray* A_offlin
 void amm_om_setAoffline(OriginalMaddnessGemm* gemm, NDArray* A_offline) {
   learn_proto_and_hash_function(gemm, A_offline);
   // Convert bucket threshold, dim, quantized offsets/scale into NDArray.
-  flatten_bucket_params(gemm->buckets, gemm->C, gemm->nsplits, gemm);
+  flatten_bucket_params(gemm->buckets, gemm);
   // TODO: Store learned offsets/scales/splitdims/splitvals into DISK for inference dump.
 }
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

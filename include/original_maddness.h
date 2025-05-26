@@ -41,6 +41,7 @@ struct Bucket {
   int n_indices; // Number of indices in this bucket
 };
 
+void print_buckets(Bucket* bucket);
 Bucket *amm_bucket_alloc();
 void amm_bucket_free(Bucket* bucket);
 
