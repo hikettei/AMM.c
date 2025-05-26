@@ -364,7 +364,7 @@ void optimize_bucket_splits(Bucket* bucket, int best_dim, NDArray* A_offline) {
   amm_ndarray_apply_binary(int, float, out[out_i] = x[x_i] < threshold ? 1 : 0, left_mask, A_offline_cp);
   amm_ndarray_apply_binary(int, float, out[out_i] = x[x_i] >= threshold ? 1 : 0, right_mask, A_offline_cp);
 
-  NDArray* left_side_points = tflist_as_index_list(bucket->indices, left_mask); // TODO: Fix
+  NDArray* left_side_points = tflist_as_index_list(bucket->indices, left_mask);
   NDArray* right_side_points = tflist_as_index_list(bucket->indices, right_mask);
 
   amm_ndarray_free(A_offline_cp);

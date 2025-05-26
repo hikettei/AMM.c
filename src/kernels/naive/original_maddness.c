@@ -3,9 +3,13 @@
 #include <math.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include <stdio.h>
 
 #ifndef MIN
 #define MIN(a,b) (( (a) < (b) ? (a) : (b) ))
+#endif
+#ifndef MAX
+#define MAX(a,b) (( (a) > (b) ? (a) : (b) ))
 #endif
 
 
@@ -22,19 +26,22 @@ void encode_m_f32(const float *X, int m, int n, int ldx1, int ldx2,
   for (int c=0; c<C; c++) {
     int base = c * codebooks_per_split;
     for (int row = 0; row < m; ++row) {
-      int code = 0;
+      int code = 1;
       // MaddnessHash
-      for (int s = 0; s < nsplits; ++s) {
-        uint32_t dim = splitdims[base + s];
+      for (int s=0; s < nsplits; s++) {
+        
+        uint32_t dim = splitdims[base + code];
         float x = X[row * ldx1 + dim * ldx2];
-        int8_t v = x * scales[base + s] + offsets[base + s];
-        const int8_t *tbl = splitvals + (base + s) * (1 << nsplits);
-        int bit = (v > tbl[code]) ? 1 : 0;
-        code = (code << 1) | bit;
+        float v = x * scales[base + code] + offsets[base + code];
+        int iv = (int)roundf(x);
+        iv = MAX(-128, MIN(iv, 128));
+        int8_t x_i8 = (int8_t)iv;
+        int8_t threshold = splitvals[base + code];
+        int bit = (x_i8 >= threshold) ? 1 : 0;
+        code = 2 * code + bit;
       }
-      // code = 1 ~ 2 << nsplits;
-      // TODO: Add Offsets?
-      out[row * C + c] = (uint8_t)code;
+      // [TODO] Adding offset here?
+      out[row * C + c] = (uint8_t)(code - codebooks_per_split); // 0 ~ codebooks_per_split-1
     }
   }
 }
