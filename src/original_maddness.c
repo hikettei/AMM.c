@@ -318,7 +318,7 @@ void optimize_split_thresholds(Bucket* bucket, int min_idx, int best_dim, int nt
   }
 }
 
-NDArray* tflist_as_index_list(NDArray* arr) {
+NDArray* tflist_as_index_list(int* indices, NDArray* arr) {
   int size = amm_ndarray_size_of(arr, 0);
   int* tflist = (int*)arr->storage;
   int required_size = 0;
@@ -334,7 +334,7 @@ NDArray* tflist_as_index_list(NDArray* arr) {
   int c = 0;
   for (int i=0; i<size; i++)
     if (tflist[i] == 1.0) {
-      index_list[c] = i;
+      index_list[c] = indices[i];
       c++;
     }
   return amm_ndarray_alloc(amm_make_shape(1, (int[]){required_size}), index_list, AMM_DTYPE_I32);
@@ -361,11 +361,12 @@ void optimize_bucket_splits(Bucket* bucket, int best_dim, NDArray* A_offline) {
   NDArray* left_mask = amm_ndarray_zeros(amm_make_shape(1, mask_size), AMM_DTYPE_I32);
   NDArray* right_mask = amm_ndarray_zeros(amm_make_shape(1, mask_size), AMM_DTYPE_I32);
 
-  amm_ndarray_apply_binary(int, float, out[out_i] = x[x_i] > threshold ? 1 : 0, left_mask, A_offline_cp);
-  amm_ndarray_apply_binary(int, float, out[out_i] = x[x_i] > threshold ? 0 : 1, right_mask, A_offline_cp);
-  
-  NDArray* left_side_points = tflist_as_index_list(left_mask);
-  NDArray* right_side_points = tflist_as_index_list(right_mask);
+  amm_ndarray_apply_binary(int, float, out[out_i] = x[x_i] < threshold ? 1 : 0, left_mask, A_offline_cp);
+  amm_ndarray_apply_binary(int, float, out[out_i] = x[x_i] >= threshold ? 1 : 0, right_mask, A_offline_cp);
+
+  NDArray* left_side_points = tflist_as_index_list(bucket->indices, left_mask); // TODO: Fix
+  NDArray* right_side_points = tflist_as_index_list(bucket->indices, right_mask);
+
   amm_ndarray_free(A_offline_cp);
   // Mwmo: sum(left_mask) == 0.0 case is really required?
   if (bucket->left_child == NULL && bucket->right_child == NULL) {
