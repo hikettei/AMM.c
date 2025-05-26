@@ -58,15 +58,18 @@ int main() {
   // Initialize matrix sampled from gaussian dist.
   OriginalMaddnessGemm* mgemm = amm_original_maddness_gemm_alloc(256, 256, 256, 16, 4, AMM_DTYPE_F32);
   // We are going to approximate A[N M] @ B[M K]
-  NDArray *A_offline = randn(256, mgemm->M);
+  NDArray *A_offline = randn(mgemm->N, mgemm->M);
   // for debug
-  // amm_ndarray_index_components(A_offline);
+  amm_ndarray_index_components(A_offline);
+   amm_ndarray_apply_unary(float, x[x_i] *= 0.1f, A_offline);
+   // index componentsで　1，2，3，...と分類するのが一番いいのだが)
   NDArray *A         = randn(mgemm->N, mgemm->M);
   NDArray *A_enc     = amm_ndarray_zeros(amm_make_shape(2, (int[]){mgemm->N, mgemm->n_cluster}), AMM_DTYPE_U8);
   
   NDArray *B         = randn(mgemm->M, mgemm->K);
   print_ndarray(A);
   print_ndarray(A_offline);
+  
   
 
   // 1. SET_A_OFFLINE

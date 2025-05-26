@@ -56,7 +56,6 @@ Bucket *amm_bucket_alloc() {
   bucket->threshold_quantized = 0;
   bucket->index = 0;
   bucket->threshold = 0.0f;
-  bucket->threshold_candidates_count = 0;
   bucket->threshold_candidates = NULL;
   bucket->left_child = NULL; bucket->right_child=NULL;
   bucket->indices = NULL;
@@ -64,7 +63,7 @@ Bucket *amm_bucket_alloc() {
   return bucket;
 }
 
-void amm_bucket_threshold_candidate_push(Bucket* bucket, float c) {
+void amm_bucket_threshold_candidates_push(Bucket* bucket, float c) {
   if (bucket->threshold_candidates_count == 0) {
     bucket->threshold_candidates = malloc(sizeof(float));
   } else {
@@ -253,55 +252,20 @@ void compute_optimal_val_splits(float* threshold, float* loss, NDArray* A_offlin
   amm_ndarray_free(x_sort_indices_rev);
 }
 
-int optimal_val_splits(NDArray* A_offline, Bucket* bucket, NDArray* total_losses, int d, int dim, int tree_level) {
-  if (bucket->tree_level == tree_level) {
-    float* threshold = malloc(sizeof(float));
-    float* loss = malloc(sizeof(float));
-    compute_optimal_val_splits(threshold, loss, A_offline, bucket, dim); // slow
-    float threshold_ = threshold[0], loss_ = loss[0];
-    free(threshold); free(loss);
-    amm_ndarray_aref(float, total_losses, 0, d) += loss_;
-    float curr_loss = amm_ndarray_aref(float, total_losses, 0, d);
-    amm_bucket_threshold_candidate_push(bucket, threshold_);
-    if (d == 0) { // TODO: Introduce early judge?
-      return 0;
-    } else {
-      for (int i=0; i<amm_ndarray_size_of(total_losses, 1); i++)
-        if (amm_ndarray_aref(float, total_losses, 0, i) >= curr_loss) return 0;
-      return 1;
-    }
-  } else {
-    Bucket* left = bucket->left_child;
-    Bucket* right = bucket->right_child;
-    amm_assert(left != NULL && right != NULL, "optimal_val_splits: could not find any buckets?...");
-    int res1 = optimal_val_splits(A_offline, left, total_losses, d, dim, tree_level);
-    int res2 = optimal_val_splits(A_offline, right, total_losses, d, dim, tree_level);
-    int res3 = optimal_val_splits(A_offline, bucket, total_losses, d, dim, bucket->tree_level); // Compute current-level node.
-    return res1 || res2 || res3;
-  }
-}
-
-void learn_quantized_params(Bucket* bucket, NDArray* A_offline, int best_dim) {
+void learn_quantized_params(Bucket* bucket, NDArray* A_offline, int best_dim, float min_val, float max_val) {
   // Appendix B
   NDArray* sorts = sort_rows_based_on_col(A_offline, best_dim);
   int idx1 = ((int*)sorts->storage)[0];
-  int idx2 = ((int*)sorts->storage)[amm_ndarray_size_of(sorts, 0) - 1];
+  int idx2 = ((int*)sorts->storage)[amm_ndarray_size_of(sorts, 0) - 1]; // TODO
   float max_loss = amm_ndarray_aref(float, A_offline, idx1, best_dim);
   float min_loss = amm_ndarray_aref(float, A_offline, idx2, best_dim);
   amm_ndarray_free(sorts);
-  float min_val = FLT_MAX;
-  float max_val = -FLT_MAX;
-  for (int i=0; i<bucket->threshold_candidates_count; i++) {
-    float c = ((float*)bucket->threshold_candidates)[i];
-    min_val = MIN(min_val, c);
-    max_val = MAX(max_val, c);
-  }
   float offset = (min_loss + min_val) / 2.0f;
   float upper_val = ((max_loss + max_val) / 2.0f) - offset;
   
   float l = log2f(254.0f / upper_val);
   float scale = powf(2.0f, l);
-  //  printf("learn_quantized_params: best_dim=%d, min_loss=%.4f, max_loss=%.4f, min_val=%.4f, max_val=%.4f, offset=%.4f, scale=%.4f\n",
+  //printf("learn_quantized_params: best_dim=%d, min_loss=%.4f, max_loss=%.4f, min_val=%.4f, max_val=%.4f, offset=%.4f, scale=%.4f\n",
   //       best_dim, min_loss, max_loss, min_val, max_val, offset, scale);
   bucket->scale = scale;
   bucket->offset = offset;
@@ -320,18 +284,19 @@ void bucket_map_tree(Bucket* bucket, int target_tree_level,
   if (bucket->right_child) bucket_map_tree(bucket->right_child, target_tree_level, f);
 }
 
-void optimize_split_thresholds(Bucket* bucket, int min_idx, int best_dim, int nth_split, NDArray* A_offline) {
+void optimize_split_thresholds(Bucket* bucket, int min_idx, int best_dim, int nth_split, NDArray* A_offline, float min_val, float max_val) {
   if (bucket->tree_level == nth_split) {
     bucket->index = best_dim;
     bucket->threshold = ((float*)bucket->threshold_candidates)[min_idx];
-    learn_quantized_params(bucket, A_offline, best_dim);
+    learn_quantized_params(bucket, A_offline, best_dim, min_val, max_val);
+    return;
   }
 
   Bucket* left = bucket->left_child;
   Bucket* right = bucket->right_child;
   if (left && right) {
-    optimize_split_thresholds(left, min_idx, best_dim, nth_split, A_offline);
-    optimize_split_thresholds(right, min_idx, best_dim, nth_split, A_offline);
+    optimize_split_thresholds(left, min_idx, best_dim, nth_split, A_offline, min_val, max_val);
+    optimize_split_thresholds(right, min_idx, best_dim, nth_split, A_offline, min_val, max_val);
   }
 }
 
@@ -420,26 +385,51 @@ B(3, 1)  B(3, 2)   B(3, 3)  B(3, 4)    | nth=2
   Bucket* bucket = amm_bucket_alloc_toplevel(amm_ndarray_size_of(A_offline, 0)); // Start with one big buckets covering all rows
   NDArray* col_losses_i = amm_ndarray_zeros(amm_make_shape(1, (int[]){steps}), AMM_DTYPE_I32);
   NDArray* total_losses = amm_ndarray_zeros(amm_make_shape(2, (int[]){1, steps}), AMM_DTYPE_F32);
+  float* threshold = malloc(sizeof(float));
+  float* loss = malloc(sizeof(float));
   for (int nth_split=0; nth_split < nsplits; nth_split++) {
     amm_ndarray_apply_unary(float, x[x_i] = 0.0f, col_losses); // TODO: Implement amm_ndarray_fill
     sumup_col_sum_sqs(col_losses, bucket, A_offline);
-    print_ndarray(col_losses);
-    argsort((float*)col_losses->storage, steps, (int*)col_losses_i->storage, 1); // col_losses_i <- argosrt(col_losses)
+    argsort((float*)col_losses->storage, steps, (int*)col_losses_i->storage, -1); // col_losses_i <- argosrt(col_losses), large -> smaller
+    // Start from the largest loss dim
     amm_ndarray_apply_unary(float, x[x_i] = 0.0f, total_losses); // TODO: Implement amm_ndarray_fill
     // Optimize splits based on col_losses
-    for (int d=0; d<steps; d++)
-      for (int lv=0; lv<=nth_split; lv++)
-        if (optimal_val_splits(A_offline, bucket, total_losses, d, ((int*)col_losses_i->storage)[d], lv) != 0) break;
-    float min_tmp = FLT_MIN;
+    for (int d=0; d<steps; d++) {
+      __block bool stop_flag = false; // TODO: GCC Support!!
+      bucket_map_tree(bucket, nth_split, amm_lambda(void, (Bucket* buck) {
+            if (!stop_flag) {
+              compute_optimal_val_splits(threshold, loss, A_offline, buck, ((int*)col_losses_i->storage)[d]);
+              amm_ndarray_aref(float, total_losses, 0, d) += loss[0];
+              float min_loss_d = FLT_MAX;
+              for (int i=0; i<d; i++) min_loss_d = MIN(min_loss_d, amm_ndarray_aref(float, total_losses, 0, i));
+              // if (d > 0 && amm_ndarray_aref(float, total_losses, 0, d) >= min_loss_d) stop_flag = true; // early stopping
+              if (d == 0) { amm_assert(buck->threshold_candidates == NULL, "buck->threshold_candidates should be NULL at the first step"); }
+              amm_bucket_threshold_candidates_push(buck, threshold[0]);
+            }}));
+    }
+    // [n_buckets, D]
+    float min_tmp = FLT_MAX;
     int min_idx;
-    for (int i=0; i<steps; i++) min_tmp = MIN(min_tmp, ((float*)total_losses->storage)[i]);
-    for (int i=0; i<steps; i++) if (((float*)total_losses->storage)[i] == min_tmp) min_idx = i;
+    for (int d=0; d<steps; d++) {
+      if (min_tmp > ((float*)total_losses->storage)[d]) {
+        min_tmp = ((float*)total_losses->storage)[d];
+        min_idx = d;
+      }
+    }
     int best_dim = ((int*)col_losses_i->storage)[min_idx];
 
-    optimize_split_thresholds(bucket, min_idx, best_dim, nth_split, A_offline);
+    __block float min_threshold = FLT_MAX;
+    __block float max_threshold = -FLT_MAX;
+    
+    bucket_map_tree(bucket, nth_split, amm_lambda(void, (Bucket* buck) {
+          min_threshold = MIN(min_threshold, ((float*)buck->threshold_candidates)[min_idx]);
+          max_threshold = MAX(max_threshold, ((float*)buck->threshold_candidates)[min_idx]);
+        }));
+    
+    optimize_split_thresholds(bucket, min_idx, best_dim, nth_split, A_offline, min_threshold, max_threshold);
     optimize_bucket_splits(bucket, best_dim, A_offline);
   }
-  amm_ndarray_free(col_losses_i); amm_ndarray_free(total_losses);
+  amm_ndarray_free(col_losses_i); amm_ndarray_free(total_losses); free(threshold); free(loss);
   return bucket;
 }
 
@@ -487,7 +477,7 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
     // as well as prototype
     amm_ndarray_slice(A_offline, 1, col_i, col_i+steps-1, 1);
     gemm->buckets[nth] = learn_binary_tree_splits(A_offline, col_losses, col_i, steps, gemm->nsplits);
-    for (int nth=0; nth<gemm->nsplits; nth++) print_buckets(gemm->buckets[0]);
+    print_buckets(gemm->buckets[nth]);
     /*
     NDArray* centroids = amm_ndarray_zeros(amm_make_shape(2, (int[]){1, gemm->M}), AMM_DTYPE_F32);
     bucket_map_tree(gemm->buckets[nth], gemm->nsplits,
