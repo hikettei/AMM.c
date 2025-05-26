@@ -134,10 +134,11 @@ void col_variances(NDArray* out, Bucket* bucket, NDArray* A_offline, int do_mean
 }
 
 void sumup_col_sum_sqs(NDArray* col_losses, Bucket* bucket, NDArray* A_offline) {
-  if (bucket->indices) col_variances(col_losses, bucket, A_offline, 0);
   if (bucket->left_child != NULL && bucket->right_child != NULL) {
     sumup_col_sum_sqs(col_losses, bucket->left_child, A_offline);
     sumup_col_sum_sqs(col_losses, bucket->right_child, A_offline);
+  } else {
+    col_variances(col_losses, bucket, A_offline, 0);
   }
 }
 
