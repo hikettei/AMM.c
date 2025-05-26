@@ -428,7 +428,11 @@ B(3, 1)  B(3, 2)   B(3, 3)  B(3, 4)    | nth=2
 void print_buckets(Bucket* bucket) {
   if (bucket->tree_level == 0) { printf("\nBucketTree:\n"); }
   for (int c=0; c<bucket->tree_level; c++) printf("  ");
-  printf("Bucket(%d, dim=%d, threshold=%f, scale=%f, offset=%f)\n", bucket->id, bucket->index, bucket->threshold, bucket->scale, bucket->offset);
+  if (bucket->left_child == NULL || bucket->right_child == NULL) {
+    printf("Cluster(ID=%d, %d rows)\n", bucket->id, bucket->n_indices);
+  } else {
+    printf("Bucket(%d, dim=%d, threshold=%f, scale=%f, offset=%f)\n", bucket->id, bucket->index, bucket->threshold, bucket->scale, bucket->offset);
+  }
   if (bucket->left_child) print_buckets(bucket->left_child);
   if (bucket->right_child) print_buckets(bucket->right_child);
 }
@@ -465,7 +469,7 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
     // as well as prototype
     amm_ndarray_slice(A_offline, 1, col_i, col_i+steps-1, 1);
     gemm->buckets[nth] = learn_binary_tree_splits(A_offline, col_losses, col_i, steps, gemm->nsplits);
-    // for (int nth=0; nth<gemm->nsplits; nth++) print_buckets(gemm->buckets[0]);
+    for (int nth=0; nth<gemm->nsplits; nth++) print_buckets(gemm->buckets[0]);
     NDArray* centroids = amm_ndarray_zeros(amm_make_shape(2, (int[]){1, gemm->M}), AMM_DTYPE_F32);
     bucket_map_tree(gemm->buckets[nth], gemm->nsplits,
                     amm_lambda(void, (Bucket* buck) {

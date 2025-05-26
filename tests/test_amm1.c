@@ -58,14 +58,16 @@ int main() {
   // Initialize matrix sampled from gaussian dist.
   OriginalMaddnessGemm* mgemm = amm_original_maddness_gemm_alloc(256, 256, 256, 16, 4, AMM_DTYPE_F32);
   // We are going to approximate A[N M] @ B[M K]
-  NDArray *A_offline = randn(512, mgemm->M);
+  NDArray *A_offline = randn(256, mgemm->M);
   // for debug
   // amm_ndarray_index_components(A_offline);
   NDArray *A         = randn(mgemm->N, mgemm->M);
   NDArray *A_enc     = amm_ndarray_zeros(amm_make_shape(2, (int[]){mgemm->N, mgemm->n_cluster}), AMM_DTYPE_U8);
   
   NDArray *B         = randn(mgemm->M, mgemm->K);
+  print_ndarray(A);
   print_ndarray(A_offline);
+  
 
   // 1. SET_A_OFFLINE
   clock_t begin = clock();
@@ -80,13 +82,14 @@ int main() {
   begin = clock();
   amm_om_setB(mgemm, B); // Encode B
   printf("Encoding B took %f seconds\n", (double)(clock() - begin) / CLOCKS_PER_SEC);
-
+  
   // Training & LUT Creation Finished
   // Compute Online Maddness GEMM
   NDArray* out = amm_ndarray_zeros(amm_make_shape(2, (int[]){mgemm->N, mgemm->K}), AMM_DTYPE_U8);
 
   begin = clock();
-  amm_om_setA(mgemm, A, A_enc);
+  amm_om_setA(mgemm, A_offline, A_enc);
+  print_ndarray(A_enc);
   amm_om_gemm(mgemm, A_enc, out);
   printf("Gemm %f seconds\n", (double)(clock() - begin) / CLOCKS_PER_SEC);
   print_ndarray(out);
