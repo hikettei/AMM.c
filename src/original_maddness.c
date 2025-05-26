@@ -97,24 +97,40 @@ Bucket *amm_bucket_alloc_toplevel(int N) {
 }
 
 void col_variances(NDArray* out, Bucket* bucket, NDArray* A_offline, int do_mean_p) {
+  /*
+    Bucket.indices = {1, 3}
+    
+      A_offline
+       steps                a_offline_r
+      +++++++                 steps
+    N -------              s ------- (where s=2)
+      +++++++ == Slice ==>   -------
+      -------
+
+   The function col_variances computes the column-wise variances of the rows in A_offline that are indexed by bucket->indices.
+   Assuming if the bucket is classifying rows well, the variances should be small.
+  */
   NDArray* a_offline_r = amm_ndarray_ascontiguous(A_offline);
   // Slicing a_offling_r rows by a jurisdictions of the bucket.
   amm_ndarray_view_index(a_offline_r, 0, bucket->n_indices, bucket->indices);
-  int D = amm_ndarray_size_of(a_offline_r, 1);
-  NDArray* mu = amm_ndarray_sum(a_offline_r, 1); // TODO: Replace w/ mean
-  amm_ndarray_apply_unary(float, x[x_i] /= (float)D, mu);
-  amm_ndarray_expand(mu, (int[]){1, D});
-  amm_ndarray_sub(a_offline_r, mu); // (a_offline_r - mu)^2
-  amm_ndarray_mul(a_offline_r, a_offline_r);
-  if (do_mean_p == 1) amm_ndarray_apply_unary(float, x[x_i] /= (float)bucket->n_indices, a_offline_r);
-  NDArray* caf = amm_ndarray_ascontiguous(a_offline_r);
+  int s = amm_ndarray_size_of(a_offline_r, 0);
+  int steps = amm_ndarray_size_of(a_offline_r, 1);
+  
+  NDArray* sumX = amm_ndarray_sum(a_offline_r, 0);
+  NDArray* sumX2 = amm_ndarray_sum(amm_ndarray_mul(a_offline_r, a_offline_r), 0);
+  
+  amm_ndarray_apply_unary(float, x[x_i] /= (float)s, sumX);
+  amm_ndarray_apply_unary(float, x[x_i] /= (float)s, sumX2);
+
+  amm_ndarray_mul(sumX, sumX);
+  amm_ndarray_sub(sumX2, sumX);
+
+  if (do_mean_p == 0) amm_ndarray_apply_unary(float, x[x_i] *= (float)s, sumX2);
+  amm_ndarray_add(out, sumX2); // accumlate outputs
+
+  amm_ndarray_free(sumX);
+  amm_ndarray_free(sumX2);
   amm_ndarray_free(a_offline_r);
-  NDArray* result = amm_ndarray_sum(caf, 0);
-  amm_assert_shape_eq(out, result);
-  amm_ndarray_apply_binary(float, float, out[out_i] += x[x_i], out, result);
-  amm_ndarray_free(result);
-  amm_ndarray_free(caf);
-  amm_ndarray_free(mu);
 }
 
 void sumup_col_sum_sqs(NDArray* col_losses, Bucket* bucket, NDArray* A_offline) {
@@ -406,6 +422,7 @@ B(3, 1)  B(3, 2)   B(3, 3)  B(3, 4)    | nth=2
   for (int nth_split=0; nth_split < nsplits; nth_split++) {
     amm_ndarray_apply_unary(float, x[x_i] = 0.0f, col_losses); // TODO: Implement amm_ndarray_fill
     sumup_col_sum_sqs(col_losses, bucket, A_offline);
+    print_ndarray(col_losses);
     argsort((float*)col_losses->storage, steps, (int*)col_losses_i->storage, 1); // col_losses_i <- argosrt(col_losses)
     amm_ndarray_apply_unary(float, x[x_i] = 0.0f, total_losses); // TODO: Implement amm_ndarray_fill
     // Optimize splits based on col_losses
@@ -470,6 +487,7 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
     amm_ndarray_slice(A_offline, 1, col_i, col_i+steps-1, 1);
     gemm->buckets[nth] = learn_binary_tree_splits(A_offline, col_losses, col_i, steps, gemm->nsplits);
     for (int nth=0; nth<gemm->nsplits; nth++) print_buckets(gemm->buckets[0]);
+    /*
     NDArray* centroids = amm_ndarray_zeros(amm_make_shape(2, (int[]){1, gemm->M}), AMM_DTYPE_F32);
     bucket_map_tree(gemm->buckets[nth], gemm->nsplits,
                     amm_lambda(void, (Bucket* buck) {
@@ -496,7 +514,8 @@ N ++++++ =>  N +--  N -+-  <- N*D Matrix is disjointed into N*C Matrix.
                         amm_ndarray_reshape(centroids, amm_make_shape(2, (int[]){1, gemm->M}));
                         amm_ndarray_free(m);
                       }));
-    amm_ndarray_free(centroids);
+    */
+    //    amm_ndarray_free(centroids);
   }
   amm_ndarray_slice(gemm->protos, 0, 0, gemm->C-1, 1);
   amm_ndarray_slice(gemm->protos, 1, 0, gemm->n_cluster-1, 1);
